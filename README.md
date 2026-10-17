@@ -29,9 +29,14 @@ BreakBite helps students spend less time waiting in the university canteen. Stud
 
 ## Folder Structure
 
-- `public/index.html` : home page
-- `public/` : all website pages
-- `README.md` : project information
+- `public/index.html` : home page (Mim)
+- `public/student.html` : student pages (Sadnan)
+- `public/staff.html` : staff page and database (Labbaik)
+- `public/planner.html` : Break Planner and testing (Taiyaba)
+- `public/style.css` : UI design and styling (Wasika)
+- `README.md` : project information (Mim)
+
+
 
 ## How to Work Together
 
