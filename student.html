@@ -1,1 +1,101 @@
-<!-- student page -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BreakBite - Student</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>BreakBite Student Page</h1>
+  <a href="index.html">Home</a> |
+  <a href="planner.html">Break Planner</a>
+
+  <h2>Rush Radar</h2>
+  <p id="rush">Checking canteen rush...</p>
+
+  <h2>Today's Menu</h2>
+  <p>Choose the quantity of each item and place your pre-order.</p>
+
+  <table border="1" cellpadding="8">
+    <tr>
+      <th>Item</th>
+      <th>Price (Tk)</th>
+      <th>Quantity</th>
+    </tr>
+    <tr>
+      <td>Khichuri</td>
+      <td>60</td>
+      <td><input type="number" class="qty" data-price="60" min="0" value="0"></td>
+    </tr>
+    <tr>
+      <td>Chicken Roll</td>
+      <td>80</td>
+      <td><input type="number" class="qty" data-price="80" min="0" value="0"></td>
+    </tr>
+    <tr>
+      <td>Singara</td>
+      <td>10</td>
+      <td><input type="number" class="qty" data-price="10" min="0" value="0"></td>
+    </tr>
+    <tr>
+      <td>Tea</td>
+      <td>15</td>
+      <td><input type="number" class="qty" data-price="15" min="0" value="0"></td>
+    </tr>
+  </table>
+
+  <br>
+  <button onclick="placeOrder()">Place Pre-order</button>
+
+  <h2>Your Order</h2>
+  <p id="result">No order placed yet.</p>
+
+  <script>
+    function showRush() {
+      var hour = new Date().getHours();
+      var text = "";
+
+      if (hour >= 12 && hour < 14) {
+        text = "High rush. Lunch time. Pre-order to save time.";
+      } else if (hour >= 10 && hour < 12) {
+        text = "Medium rush. Break time is near.";
+      } else {
+        text = "Low rush. Good time to visit.";
+      }
+
+      document.getElementById("rush").textContent = text;
+    }
+
+    function placeOrder() {
+      var inputs = document.querySelectorAll(".qty");
+      var total = 0;
+      var count = 0;
+
+      for (var i = 0; i < inputs.length; i++) {
+        var quantity = Number(inputs[i].value);
+        var price = Number(inputs[i].dataset.price);
+        count = count + quantity;
+        total = total + quantity * price;
+      }
+
+      var result = document.getElementById("result");
+
+      if (count === 0) {
+        result.textContent = "Please select at least one item.";
+        return;
+      }
+
+      var token = Math.floor(Math.random() * 900) + 100;
+      var waitTime = 5 + count * 2;
+
+      result.textContent = "Token: " + token +
+        " | Items: " + count +
+        " | Total: " + total + " Tk" +
+        " | Estimated waiting time: " + waitTime + " minutes";
+    }
+
+    showRush();
+  </script>
+</body>
+</html>
