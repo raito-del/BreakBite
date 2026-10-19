@@ -81,6 +81,17 @@
         <h3>Completed (latest 10)</h3>
         <div id="done-list"></div>
       </div>
+
+      <div class="card">
+        <h3>End of day</h3>
+        <p class="muted">Saves today's report, removes all orders, and restarts token numbers from 1. Press this once at the end of the day.</p>
+        <button class="danger" id="eod-btn">End of day: save report and reset tokens</button>
+      </div>
+
+      <div class="card">
+        <h3>Past daily reports</h3>
+        <div id="reports-list"></div>
+      </div>
     </section>
 
     <!-- Menu -->
@@ -161,8 +172,8 @@
 <script type="module">
 import { db, auth } from "./firebase.js";
 import {
-  collection, doc, addDoc, updateDoc, deleteDoc, setDoc, getDoc,
-  onSnapshot, query, orderBy, limit
+  collection, doc, addDoc, updateDoc, deleteDoc, setDoc, getDoc, getDocs,
+  onSnapshot, query, orderBy, limit, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -205,6 +216,10 @@ function timeText(o) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function todayKey() {
+  return new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
+}
+
 // ---------- login ----------
 onAuthStateChanged(auth, function (user) {
   if (user) {
@@ -214,6 +229,7 @@ onAuthStateChanged(auth, function (user) {
       started = true;
       watchOrders();
       watchMenu();
+      watchReports();
       loadPlannerSettings();
     }
   } else {
@@ -321,6 +337,105 @@ function advanceOrder(id) {
     toast("Could not update the order.");
     console.error(err);
   });
+}
+
+// ---------- end of day ----------
+$("eod-btn").addEventListener("click", endOfDay);
+
+async function endOfDay() {
+  let all;
+  try {
+    all = await getDocs(collection(db, "orders"));
+  } catch (err) {
+    toast("Could not read orders. Try again.");
+    console.error(err);
+    return;
+  }
+
+  if (all.empty) {
+    toast("No orders to close today.");
+    return;
+  }
+
+  const activeCount = all.docs.filter(function (d) { return d.data().status !== "Done"; }).length;
+  let msg = "Save today's report and remove all " + all.size + " orders? Token numbers will restart from 1.";
+  if (activeCount > 0) {
+    msg += "\n\n" + activeCount + " order(s) are still active and will also be removed.";
+  }
+  if (!confirm(msg)) return;
+  if (!confirm("This cannot be undone. Are you sure?")) return;
+
+  // Build the summary before anything is deleted
+  let totalSales = 0;
+  const itemCount = {};
+  all.docs.forEach(function (d) {
+    const o = d.data();
+    totalSales += Number(o.total) || 0;
+    (o.items || []).forEach(function (i) {
+      itemCount[i.name] = (itemCount[i.name] || 0) + (Number(i.qty) || 0);
+    });
+  });
+
+  const btn = $("eod-btn");
+  btn.disabled = true;
+  btn.textContent = "Closing the day...";
+
+  try {
+    // 1. Save the report first. If this fails, nothing is deleted.
+    await addDoc(collection(db, "daily_reports"), {
+      date: todayKey(),
+      totalOrders: all.size,
+      totalSales: totalSales,
+      items: itemCount,
+      activeAtClose: activeCount,
+      createdAt: serverTimestamp()
+    });
+
+    // 2. Delete all orders in batches (Firestore allows up to 500 per batch)
+    const docs = all.docs;
+    for (let i = 0; i < docs.length; i += 400) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + 400).forEach(function (d) { batch.delete(d.ref); });
+      await batch.commit();
+    }
+
+    // 3. Restart token numbers from 1
+    await setDoc(doc(db, "counters", "orders"), { last: 0 });
+
+    toast("Day closed. Report saved and tokens restart from 1.");
+  } catch (err) {
+    toast("Could not close the day. Nothing was deleted if the report failed. Try again.");
+    console.error(err);
+  }
+
+  btn.disabled = false;
+  btn.textContent = "End of day: save report and reset tokens";
+}
+
+// ---------- past reports ----------
+function watchReports() {
+  onSnapshot(query(collection(db, "daily_reports"), orderBy("createdAt", "desc"), limit(7)),
+    function (snap) {
+      if (snap.empty) {
+        $("reports-list").innerHTML = '<div class="empty">No reports yet. A report is saved each time you press End of day.</div>';
+        return;
+      }
+      $("reports-list").innerHTML = snap.docs.map(function (d) {
+        const r = d.data();
+        const top = Object.keys(r.items || {})
+          .map(function (name) { return { name: name, qty: r.items[name] }; })
+          .sort(function (a, b) { return b.qty - a.qty; })
+          .slice(0, 5)
+          .map(function (i) { return i.name + " x" + i.qty; })
+          .join(", ");
+        return '<div class="list-row">' +
+          '<span><b>' + escapeHtml(r.date || "") + '</b>: ' + (r.totalOrders || 0) + ' orders, ' +
+          (r.totalSales || 0) + ' Tk<br><span class="muted">Top items: ' + escapeHtml(top || "none") + '</span></span>' +
+        '</div>';
+      }).join("");
+    },
+    function (err) { console.error(err); }
+  );
 }
 
 // ---------- menu ----------
