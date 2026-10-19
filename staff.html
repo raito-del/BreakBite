@@ -12,7 +12,7 @@
 <div id="login-screen">
   <div class="login-brand">
     <div class="logo">BreakBite</div>
-    <p>Less waiting, more break. Manage your canteen orders and menu from one place.</p>
+    <p>Smart Food, Smart Time. Manage your canteen orders and menu from one place.</p>
   </div>
   <div class="login-form">
     <form id="login-form">
@@ -98,7 +98,7 @@
       </div>
       <div class="card">
         <h3>Add a new item</h3>
-        <div class="row">
+        <div class="form-row">
           <input type="text" id="food-name" placeholder="Item name">
           <input type="number" id="food-price" placeholder="Price (Tk)" min="0">
           <input type="number" id="food-minutes" placeholder="Eat time (min)" min="1">
@@ -112,7 +112,7 @@
       <h2>Food Waste Saver</h2>
       <div class="card">
         <h3>Start a discount</h3>
-        <div class="row">
+        <div class="form-row">
           <select id="waste-food"></select>
           <input type="number" id="waste-percent" placeholder="Discount %" min="5" max="90">
           <button id="waste-start">Start discount</button>
@@ -294,9 +294,10 @@ function renderOrders() {
   const done = orders.filter(function (o) { return o.status === "Done"; }).slice(0, 10);
   $("done-list").innerHTML = done.length
     ? done.map(function (o) {
-        return '<div class="row" style="padding:4px 0"><span class="badge off">#' + o.token + '</span>' +
-          '<span>' + escapeHtml(itemsText(o)) + '</span>' +
-          '<span class="muted">' + o.total + ' Tk, ' + timeText(o) + '</span></div>';
+        return '<div class="list-row">' +
+          '<span><span class="badge off">#' + o.token + '</span> ' + escapeHtml(itemsText(o)) + '</span>' +
+          '<span class="muted">' + o.total + ' Tk, ' + timeText(o) + '</span>' +
+        '</div>';
       }).join("")
     : '<div class="empty">Nothing completed yet.</div>';
 }
@@ -341,11 +342,11 @@ function renderMenu() {
       : f.price + ' Tk';
     const eat = (f.minutes || DEFAULT_EAT_MIN) + ' min';
     return '<tr>' +
-      '<td>' + escapeHtml(f.name) + '</td>' +
-      '<td>' + price + '</td>' +
-      '<td>' + eat + '</td>' +
-      '<td><span class="badge ' + (f.available ? "green" : "off") + '">' + (f.available ? "Available" : "Sold out") + '</span></td>' +
-      '<td class="row">' +
+      '<td data-label="Item">' + escapeHtml(f.name) + '</td>' +
+      '<td data-label="Price">' + price + '</td>' +
+      '<td data-label="Eat time">' + eat + '</td>' +
+      '<td data-label="Status"><span class="badge ' + (f.available ? "green" : "off") + '">' + (f.available ? "Available" : "Sold out") + '</span></td>' +
+      '<td class="actions">' +
         '<button class="ghost small" data-act="toggle" data-id="' + f.id + '">' + (f.available ? "Mark sold out" : "Mark available") + '</button>' +
         '<button class="ghost small" data-act="edit" data-id="' + f.id + '">Edit</button>' +
         '<button class="danger small" data-act="delete" data-id="' + f.id + '">Delete</button>' +
@@ -427,9 +428,10 @@ function renderWaste() {
   const discounted = menu.filter(function (f) { return f.discount > 0; });
   $("waste-list").innerHTML = discounted.length
     ? discounted.map(function (f) {
-        return '<div class="row" style="padding:6px 0">' +
+        return '<div class="list-row">' +
           '<span><b>' + escapeHtml(f.name) + '</b>: ' + f.discount + '% off, now ' + finalPrice(f) + ' Tk</span>' +
-          '<button class="ghost small" data-act="stopDiscount" data-id="' + f.id + '">Stop discount</button></div>';
+          '<button class="ghost small" data-act="stopDiscount" data-id="' + f.id + '">Stop discount</button>' +
+        '</div>';
       }).join("")
     : '<div class="empty">No discounts running. Pick a food above to start one.</div>';
 }
