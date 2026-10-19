@@ -1,1 +1,222 @@
-<!-- student page -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BreakBite - Break Planner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">BreakBite</div>
+  <nav class="tabs" aria-label="Main sections">
+    <a class="tab" href="student.html">Order</a>
+    <a class="tab active" href="planner.html">Break Planner</a>
+    <a class="tab" href="index.html">Home</a>
+  </nav>
+</header>
+
+<main class="narrow">
+  <h1>Break Planner</h1>
+  <p class="intro">Tell us how long your break is and how much money you have. We will suggest what you can eat.</p>
+
+  <div class="card">
+    <h2>Your break</h2>
+    <div class="form-grid">
+      <label>Break time (minutes)
+        <input type="number" id="time" placeholder="e.g. 15">
+      </label>
+      <label>Money (Tk)
+        <input type="number" id="money" min="0" placeholder="e.g. 100">
+      </label>
+    </div>
+    <button id="plan-btn" disabled>Loading menu...</button>
+    <p class="error" id="error" role="alert"></p>
+  </div>
+
+  <div class="card" id="result-card" hidden>
+    <h2>Suggested for you</h2>
+    <div class="summary">
+      <span id="result-info"></span>
+      <b id="result-total"></b>
+    </div>
+    <div id="result-list"></div>
+  </div>
+</main>
+
+<script type="module">
+import { db } from "./firebase.js";
+import {
+  collection, doc, getDoc, getDocs, query, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const DEFAULTS = { minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5 };
+
+let settings = Object.assign({}, DEFAULTS);
+let foods = [];
+
+const $ = function (id) { return document.getElementById(id); };
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+function showError(msg) {
+  $("error").textContent = msg;
+  if (msg) $("result-card").hidden = true;
+}
+
+function finalPrice(f) {
+  return Math.round(f.price * (100 - (f.discount || 0)) / 100);
+}
+
+// ---------- load settings and menu once ----------
+async function load() {
+  try {
+    const sSnap = await getDoc(doc(db, "settings", "planner"));
+    if (sSnap.exists()) settings = Object.assign({}, DEFAULTS, sSnap.data());
+  } catch (err) {
+    console.error(err); // fall back to defaults
+  }
+
+  try {
+    const snap = await getDocs(query(collection(db, "menu"), orderBy("order")));
+    foods = snap.docs
+      .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+      .filter(function (f) { return f.available !== false; })
+      .map(function (f) {
+        return {
+          name: f.name,
+          price: finalPrice(f),
+          oldPrice: f.price,
+          discount: f.discount || 0,
+          minutes: f.minutes > 0 ? f.minutes : settings.defaultEat
+        };
+      })
+      .filter(function (f) { return f.price >= 0 && f.minutes > 0; });
+  } catch (err) {
+    console.error(err);
+    showError("Could not load the menu. Check your internet and refresh.");
+    $("plan-btn").textContent = "Show options";
+    return;
+  }
+
+  const t = $("time");
+  t.min = settings.minBreak;
+  t.max = settings.maxBreak;
+  t.step = settings.step;
+  t.placeholder = "e.g. " + Math.min(settings.maxBreak, Math.max(settings.minBreak, 15));
+
+  $("plan-btn").disabled = false;
+  $("plan-btn").textContent = "Show options";
+  if (!foods.length) showError("No food is available right now. Please check again later.");
+}
+
+// ---------- best combination ----------
+// Most items that fit the time and money. Ties go to the bigger spend.
+// Same item can be picked more than once.
+function bestCombo(minutes, money) {
+  const cap = Math.min(money, 1500);
+  const W = cap + 1;
+  const size = (minutes + 1) * W;
+  const count = new Int16Array(size).fill(-1);
+  const from = new Int16Array(size).fill(-1);
+  count[0] = 0;
+
+  for (let i = 0; i < foods.length; i++) {
+    const ft = foods[i].minutes, fp = foods[i].price;
+    if (ft > minutes || fp > cap) continue;
+    for (let t = ft; t <= minutes; t++) {
+      for (let m = fp; m <= cap; m++) {
+        const prev = (t - ft) * W + (m - fp);
+        if (count[prev] < 0) continue;
+        const idx = t * W + m;
+        if (count[prev] + 1 > count[idx]) {
+          count[idx] = count[prev] + 1;
+          from[idx] = i;
+        }
+      }
+    }
+  }
+
+  let bestIdx = 0, bestCount = 0, bestSpend = 0;
+  for (let t = 0; t <= minutes; t++) {
+    for (let m = 0; m <= cap; m++) {
+      const c = count[t * W + m];
+      if (c > bestCount || (c === bestCount && c > 0 && m > bestSpend)) {
+        bestCount = c; bestSpend = m; bestIdx = t * W + m;
+      }
+    }
+  }
+
+  const picked = [];
+  let idx = bestIdx;
+  let guard = 0;
+  while (idx > 0 && from[idx] >= 0 && guard++ < 200) {
+    const f = foods[from[idx]];
+    picked.push(f);
+    const t = Math.floor(idx / W), m = idx % W;
+    idx = (t - f.minutes) * W + (m - f.price);
+  }
+  return picked;
+}
+
+function groupItems(items) {
+  const map = {};
+  items.forEach(function (f) {
+    if (!map[f.name]) map[f.name] = { food: f, qty: 0 };
+    map[f.name].qty++;
+  });
+  return Object.keys(map).map(function (k) { return map[k]; });
+}
+
+$("plan-btn").addEventListener("click", function () {
+  const minutes = parseInt($("time").value, 10);
+  const money = parseInt($("money").value, 10);
+
+  if (isNaN(minutes) || minutes < settings.minBreak || minutes > settings.maxBreak) {
+    showError("Please enter a break time between " + settings.minBreak + " and " + settings.maxBreak + " minutes.");
+    return;
+  }
+  if (isNaN(money) || money < 0) {
+    showError("Please enter how much money you have.");
+    return;
+  }
+  if (!foods.length) {
+    showError("No food is available right now. Please check again later.");
+    return;
+  }
+  showError("");
+
+  const items = bestCombo(minutes, money);
+  const list = $("result-list");
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty">Nothing fits in ' + minutes + ' minutes and ' + money +
+      ' Tk. Try more time or money.</div>';
+    $("result-info").textContent = minutes + " min, " + money + " Tk";
+    $("result-total").textContent = "";
+  } else {
+    const totalTime = items.reduce(function (a, f) { return a + f.minutes; }, 0);
+    const totalCost = items.reduce(function (a, f) { return a + f.price; }, 0);
+    list.innerHTML = groupItems(items).map(function (g) {
+      const f = g.food;
+      const off = f.discount > 0 ? ' <span class="badge">' + f.discount + '% off</span>' : '';
+      return '<div class="item"><div><div class="name">' + esc(f.name) + ' x' + g.qty + off +
+        '</div><div class="meta">' + f.minutes + ' min each</div></div>' +
+        '<div class="price">' + (f.price * g.qty) + ' Tk</div></div>';
+    }).join("");
+    $("result-info").textContent = "Time used: " + totalTime + " of " + minutes + " min";
+    $("result-total").textContent = "Total: " + totalCost + " Tk";
+  }
+  $("result-card").hidden = false;
+});
+
+load();
+</script>
+
+</body>
+</html>
