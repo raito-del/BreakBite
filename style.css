@@ -217,7 +217,7 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; }
 .off-text { color: var(--ink-soft); }
 .empty { color: var(--ink-soft); padding: 8px 0; }
 
-/* ---------- List rows (Running discounts, Done orders, etc.) ---------- */
+/* ---------- List rows (Running discounts, Done orders) ---------- */
 .list-row {
   display: flex; justify-content: space-between; align-items: center;
   gap: 12px; flex-wrap: wrap;
@@ -227,6 +227,11 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; }
 .list-row:last-child { border-bottom: 0; }
 .list-row > span { min-width: 0; overflow-wrap: anywhere; flex: 1 1 200px; }
 .list-row button { flex-shrink: 0; }
+
+/* ---------- Form row (inputs and button in one row) ---------- */
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.form-row input, .form-row select { flex: 1 1 160px; min-width: 0; }
+.form-row button { flex-shrink: 0; }
 
 /* ---------- Cart bar (student) ---------- */
 .cart {
@@ -387,7 +392,7 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
   .hero h1 { font-size: 24px; }
   .steps { gap: 6px; }
 
-  /* Menu rows: name and price on the left, stepper or buttons below */
+  /* Menu rows: name and price on the left, stepper below or beside */
   .item { flex-wrap: wrap; }
   .item > div:first-child { flex: 1 1 60%; }
   .stepper { margin-left: auto; }
@@ -401,7 +406,10 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
   .list-row { flex-direction: column; align-items: flex-start; }
   .list-row button { width: auto; }
 
-  /* Menu table on phones: stack each row as a card */
+  /* Form row: stack inputs and button on phones */
+  .form-row input, .form-row select, .form-row button { flex: 1 1 100%; width: 100%; }
+
+  /* Menu table on phones: each row becomes a card */
   .table-wrap { overflow-x: visible; }
   table, thead, tbody, th, td, tr { display: block; width: 100%; }
   thead { display: none; }
