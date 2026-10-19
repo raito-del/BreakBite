@@ -10,247 +10,36 @@
 
 <header class="top">
   <div class="brand">BreakBite</div>
-  <nav class="tabs" aria-label="Student sections">
-    <a class="tab active" href="student.html">Order</a>
+  <nav class="tabs" aria-label="Main sections">
+    <a class="tab" href="student.html">Order</a>
     <a class="tab" href="planner.html">Break Planner</a>
-    <a class="tab" href="index.html">Home</a>
+    <a class="tab active" href="index.html">Home</a>
   </nav>
 </header>
 
-<main class="narrow">
+<main class="wide">
   <section class="hero">
-    <h1>Pre-order, skip the queue.</h1>
-    <p class="muted">Pick your food, place the order, and collect it when your token is ready.</p>
+    <h1>Less waiting, more break.</h1>
+    <p>Pre-order your canteen food, skip the queue, and plan your break with the time you have.</p>
   </section>
 
-  <div class="card rush">
-    <div>
-      <div class="label">Canteen rush</div>
-      <div class="muted" id="rush-text">Checking...</div>
-    </div>
-    <div class="num" id="rush-num">-</div>
+  <div class="grid">
+    <a class="card" href="student.html">
+      <h2>Order food</h2>
+      <p>See today's menu, pick your items, and track your token until it is ready.</p>
+      <span class="go">Open ordering &rarr;</span>
+    </a>
+    <a class="card" href="planner.html">
+      <h2>Break Planner</h2>
+      <p>Enter your break time and money. We suggest what you can eat in that time.</p>
+      <span class="go">Plan my break &rarr;</span>
+    </a>
   </div>
 
-  <div class="card">
-    <h2>Today's menu</h2>
-    <div id="menu-list"><div class="empty">Loading menu...</div></div>
-  </div>
-
-  <div class="cart">
-    <span id="cart-text">No items selected</span>
-    <button id="order-btn" disabled>Place pre-order</button>
-  </div>
-
-  <div class="card" id="track-card" hidden>
-    <h2>Your order</h2>
-    <div class="ticket-big">
-      <small>Your token</small>
-      <div class="tok" id="t-token">-</div>
-      <div class="muted" id="t-items"></div>
-    </div>
-    <div class="steps">
-      <div class="step" data-s="Received"><span>1</span>Received</div>
-      <div class="step" data-s="Preparing"><span>2</span>Preparing</div>
-      <div class="step" data-s="Ready"><span>3</span>Ready</div>
-    </div>
-    <p class="track-msg" id="t-msg"></p>
-    <button class="ghost small" id="new-order-btn">Start a new order</button>
+  <div class="soon">
+    Staff login is only for canteen staff. Students do not need an account.
   </div>
 </main>
 
-<div id="toast" hidden></div>
-
-<script type="module">
-import { db } from "./firebase.js";
-import {
-  collection, doc, onSnapshot, query, orderBy, where, runTransaction, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const STEPS = ["Received", "Preparing", "Ready"];
-const SAVED_KEY = "breakbite_order";
-
-let menu = [];
-let qty = {};
-let pending = 0;
-let trackUnsub = null;
-
-const $ = function (id) { return document.getElementById(id); };
-
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, function (c) {
-    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-  });
-}
-
-function price(f) {
-  return Math.round(f.price * (100 - (f.discount || 0)) / 100);
-}
-
-function toast(msg) {
-  const t = $("toast");
-  t.textContent = msg;
-  t.hidden = false;
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(function () { t.hidden = true; }, 2500);
-}
-
-function waitMinutes() {
-  return 3 + pending * 2;
-}
-
-function cartItems() {
-  return menu
-    .filter(function (f) { return qty[f.id] > 0; })
-    .map(function (f) { return { name: f.name, qty: qty[f.id], price: price(f) }; });
-}
-
-// ---------- Menu ----------
-onSnapshot(query(collection(db, "menu"), orderBy("order")),
-  function (snap) {
-    menu = snap.docs
-      .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-      .filter(function (f) { return f.available !== false; });
-    drawMenu();
-    updateCart();
-  },
-  function (err) {
-    $("menu-list").innerHTML = '<div class="empty">Could not load the menu. Check the Firebase setup.</div>';
-    console.error(err);
-  }
-);
-
-function drawMenu() {
-  if (!menu.length) {
-    $("menu-list").innerHTML = '<div class="empty">No items right now. Please check again later.</div>';
-    return;
-  }
-  $("menu-list").innerHTML = menu.map(function (f) {
-    const p = price(f);
-    const priceHtml = f.discount > 0
-      ? '<s class="muted">' + f.price + ' Tk</s> <b>' + p + ' Tk</b> <span class="badge">' + f.discount + '% off</span>'
-      : '<b>' + f.price + ' Tk</b>';
-    const q = qty[f.id] || 0;
-    return '<div class="item">' +
-      '<div><div class="name">' + esc(f.name) + '</div><div>' + priceHtml + '</div></div>' +
-      '<div class="stepper">' +
-        '<button class="ghost small" data-act="dec" data-id="' + f.id + '">-</button>' +
-        '<span>' + q + '</span>' +
-        '<button class="small" data-act="inc" data-id="' + f.id + '">+</button>' +
-      '</div></div>';
-  }).join("");
-}
-
-$("menu-list").addEventListener("click", function (e) {
-  const b = e.target.closest("button[data-act]");
-  if (!b) return;
-  const id = b.dataset.id;
-  const cur = qty[id] || 0;
-  qty[id] = b.dataset.act === "inc" ? Math.min(cur + 1, 20) : Math.max(cur - 1, 0);
-  if (qty[id] === 0) delete qty[id];
-  drawMenu();
-  updateCart();
-});
-
-function updateCart() {
-  const items = cartItems();
-  const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
-  const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
-  $("cart-text").textContent = count ? count + " item(s), " + total + " Tk" : "No items selected";
-  $("order-btn").disabled = count === 0;
-}
-
-// ---------- Rush radar ----------
-onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "Preparing"])),
-  function (snap) {
-    pending = snap.size;
-    let text;
-    if (pending >= 10) text = "High rush. Pre-order to save time.";
-    else if (pending >= 5) text = "Medium rush. Pre-order if you can.";
-    else text = "Low rush. Good time to visit.";
-    $("rush-text").textContent = text + " " + pending + " order(s) waiting.";
-    $("rush-num").textContent = pending;
-  },
-  function (err) { console.error(err); }
-);
-
-// ---------- Place order ----------
-$("order-btn").addEventListener("click", async function () {
-  const items = cartItems();
-  if (!items.length) return;
-  const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
-  const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
-
-  const btn = $("order-btn");
-  btn.disabled = true;
-  btn.textContent = "Placing...";
-  try {
-    const counterRef = doc(db, "counters", "orders");
-    const orderRef = doc(collection(db, "orders"));
-    await runTransaction(db, async function (tx) {
-      const cs = await tx.get(counterRef);
-      const next = (cs.exists() ? cs.data().last : 0) + 1;
-      tx.set(counterRef, { last: next });
-      tx.set(orderRef, {
-        token: next,
-        items: items,
-        count: count,
-        total: total,
-        status: "Received",
-        createdAt: serverTimestamp()
-      });
-    });
-    localStorage.setItem(SAVED_KEY, orderRef.id);
-    qty = {};
-    drawMenu();
-    track(orderRef.id);
-    toast("Order placed!");
-  } catch (err) {
-    toast("Could not place the order. Check your internet and try again.");
-    console.error(err);
-  }
-  btn.textContent = "Place pre-order";
-  updateCart();
-});
-
-// ---------- Token tracking ----------
-function track(id) {
-  if (trackUnsub) trackUnsub();
-  $("track-card").hidden = false;
-  trackUnsub = onSnapshot(doc(db, "orders", id),
-    function (snap) {
-      if (!snap.exists()) return;
-      const o = snap.data();
-      $("t-token").textContent = o.token;
-      $("t-items").textContent = o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
-
-      const idx = o.status === "Done" ? STEPS.length : STEPS.indexOf(o.status);
-      document.querySelectorAll(".step").forEach(function (el) {
-        const i = STEPS.indexOf(el.dataset.s);
-        el.classList.toggle("done", i < idx);
-        el.classList.toggle("now", i === idx);
-      });
-
-      let msg;
-      if (o.status === "Ready") msg = "Ready! Please collect your food.";
-      else if (o.status === "Preparing") msg = "Your food is being prepared.";
-      else if (o.status === "Done") msg = "Thank you! Order collected.";
-      else msg = "Waiting. Estimated " + waitMinutes() + " min.";
-      $("t-msg").textContent = msg;
-    },
-    function (err) { console.error(err); }
-  );
-}
-
-$("new-order-btn").addEventListener("click", function () {
-  localStorage.removeItem(SAVED_KEY);
-  if (trackUnsub) trackUnsub();
-  trackUnsub = null;
-  $("track-card").hidden = true;
-});
-
-// Resume tracking after a page refresh
-const saved = localStorage.getItem(SAVED_KEY);
-if (saved) track(saved);
-</script>
 </body>
 </html>
