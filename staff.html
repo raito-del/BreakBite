@@ -3,230 +3,408 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BreakBite - Staff</title>
-  <!-- Wasika-r style.css thakle ei line ta kaj korbe. Staff page-er nijer style niche deya ache. -->
-  <link rel="stylesheet" href="style.css">
+  <title>BreakBite Staff</title>
   <style>
-    .staff { font-family: system-ui, "Segoe UI", sans-serif; max-width: 1000px; margin: 0 auto; padding: 16px; color: #1f2a24; }
-    .staff h1 { margin: 0 0 4px; }
-    .staff h2 { margin: 0 0 12px; }
-    .staff section { background: #fff; border: 1px solid #d9e2db; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
-    .staff input, .staff select { padding: 8px; border: 1px solid #b8c4bb; border-radius: 6px; font-size: 15px; }
-    .staff button { padding: 8px 14px; border: 0; border-radius: 6px; background: #2f7d4f; color: #fff; font-size: 15px; cursor: pointer; }
-    .staff button:hover { background: #256640; }
-    .staff button.grey { background: #6b7a70; }
-    .staff button.red { background: #b3402f; }
-    .staff table { width: 100%; border-collapse: collapse; }
-    .staff th, .staff td { text-align: left; padding: 8px; border-bottom: 1px solid #e4ebe6; vertical-align: top; }
-    .staff .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-    .staff .wait { font-size: 20px; font-weight: 700; color: #2f7d4f; }
-    .staff .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 13px; background: #eef3ef; }
-    .staff .tag.Pending { background: #fff1cc; }
-    .staff .tag.Preparing { background: #dbeafe; }
-    .staff .tag.Ready { background: #d4f4dd; }
-    .staff .tag.Done { background: #e5e5e5; }
-    .staff .muted { color: #6b7a70; }
+    :root {
+      --ink: #14302b;
+      --ink-soft: #5b716b;
+      --paper: #f2f6f4;
+      --card: #ffffff;
+      --line: #d8e3de;
+      --green: #1f7a5c;
+      --green-dark: #165c45;
+      --amber: #f2a93b;
+      --amber-soft: #fdf0d5;
+      --blue-soft: #dcebf7;
+      --mint-soft: #d9f2e6;
+      --red: #b73c2d;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+    }
+    h1, h2, h3 { margin: 0; line-height: 1.2; }
+    button, input, select { font: inherit; }
+    .hidden { display: none !important; }
+    .muted { color: var(--ink-soft); }
+
+    /* ---------- Buttons and inputs ---------- */
+    button {
+      border: 0; border-radius: 8px; padding: 9px 16px;
+      background: var(--green); color: #fff; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: var(--green-dark); }
+    button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button.ghost:hover { background: var(--paper); }
+    button.danger { background: transparent; color: var(--red); border: 1px solid #e8c4be; }
+    button.danger:hover { background: #fbeceA; }
+    button.small { padding: 6px 12px; font-size: 14px; }
+    button:focus-visible, input:focus-visible, select:focus-visible, .tab:focus-visible {
+      outline: 3px solid var(--amber); outline-offset: 2px;
+    }
+    input, select {
+      padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; color: var(--ink); max-width: 100%;
+    }
+    label.field { display: block; font-weight: 600; margin-bottom: 12px; }
+    label.field input { display: block; width: 100%; margin-top: 4px; font-weight: 400; }
+
+    /* ---------- Login ---------- */
+    #login-screen {
+      min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr;
+    }
+    .login-brand {
+      background: var(--green); color: #fff; padding: 48px;
+      display: flex; flex-direction: column; justify-content: center; gap: 16px;
+    }
+    .login-brand .logo { font-size: 48px; font-weight: 800; letter-spacing: -1px; }
+    .login-brand p { margin: 0; font-size: 18px; max-width: 32ch; opacity: .92; }
+    .login-form { display: flex; align-items: center; justify-content: center; padding: 32px; }
+    .login-form form { width: 100%; max-width: 340px; }
+    .login-form h2 { font-size: 26px; margin-bottom: 4px; }
+    .login-form .msg { min-height: 24px; color: var(--red); margin: 8px 0; }
+    .login-form button { width: 100%; padding: 12px; }
+
+    /* ---------- App shell ---------- */
+    header.top {
+      background: var(--card); border-bottom: 1px solid var(--line);
+      padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .brand { font-size: 22px; font-weight: 800; color: var(--green); letter-spacing: -.5px; }
+    .tabs { display: flex; gap: 4px; margin-left: 16px; flex-wrap: wrap; }
+    .tab {
+      background: transparent; color: var(--ink-soft); padding: 8px 14px; border-radius: 8px;
+    }
+    .tab:hover { background: var(--paper); }
+    .tab.active { background: var(--mint-soft); color: var(--green-dark); }
+    header.top .right { margin-left: auto; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .panel > h2 { font-size: 24px; margin-bottom: 16px; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 20px;
+    }
+    .card h3 { margin-bottom: 12px; font-size: 18px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    /* ---------- Waiting time strip ---------- */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+    .stat .num { font-size: 32px; font-weight: 800; color: var(--green); }
+    .stat.hot .num { color: #b9741a; }
+
+    /* ---------- Order board (the memorable part) ---------- */
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+    .col { background: #e7eeea; border-radius: var(--radius); padding: 12px; min-height: 160px; }
+    .col h3 { font-size: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .col .count { background: #fff; border-radius: 20px; padding: 0 10px; font-size: 14px; }
+    .ticket {
+      background: var(--card); border-radius: 10px; margin-bottom: 10px;
+      display: flex; overflow: hidden; border: 1px solid var(--line);
+    }
+    .ticket .stub {
+      width: 76px; flex-shrink: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 10px 4px;
+      border-right: 2px dashed var(--line);
+    }
+    .ticket .stub small { font-size: 12px; color: var(--ink-soft); }
+    .ticket .stub b { font-size: 24px; }
+    .ticket.Pending .stub { background: var(--amber-soft); }
+    .ticket.Preparing .stub { background: var(--blue-soft); }
+    .ticket.Ready .stub { background: var(--mint-soft); }
+    .ticket .body { padding: 10px 12px; flex: 1; min-width: 0; }
+    .ticket .items { font-size: 15px; word-break: break-word; }
+    .ticket .meta { font-size: 13px; color: var(--ink-soft); margin: 4px 0 8px; }
+    .empty { color: var(--ink-soft); font-size: 14px; padding: 8px 4px; }
+
+    /* ---------- Tables ---------- */
     .table-wrap { overflow-x: auto; }
-    #login-box { max-width: 340px; margin: 80px auto; }
-    #login-box input { width: 100%; box-sizing: border-box; margin-bottom: 10px; }
-    .hidden { display: none; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+    th { font-size: 14px; color: var(--ink-soft); font-weight: 600; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 13px; background: var(--amber-soft); }
+    .badge.green { background: var(--mint-soft); }
+    .badge.off { background: #ececec; color: var(--ink-soft); }
+    .off-text { color: var(--ink-soft); }
+
+    /* ---------- Toast ---------- */
+    #toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; z-index: 10;
+    }
+
+    @media (max-width: 760px) {
+      #login-screen { grid-template-columns: 1fr; }
+      .login-brand { padding: 32px 24px; }
+      .board, .stats { grid-template-columns: 1fr; }
+      main { padding: 16px; }
+      .tabs { margin-left: 0; width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
 <body>
 
-<!-- ============ 1. LOGIN ============ -->
-<div class="staff" id="login-box">
-  <section>
-    <h1>BreakBite Staff</h1>
-    <p class="muted">Staff login</p>
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-    <button onclick="login()">Login</button>
-    <p id="login-error" class="muted"></p>
-  </section>
-</div>
-
-<!-- ============ STAFF DASHBOARD ============ -->
-<div class="staff hidden" id="dashboard">
-  <div class="row">
-    <div>
-      <h1>BreakBite Staff</h1>
-      <div class="muted">Orders and menu manage korar page</div>
-    </div>
-    <button class="grey" onclick="logout()" style="margin-left:auto">Logout</button>
+<!-- ================= LOGIN ================= -->
+<div id="login-screen">
+  <div class="login-brand">
+    <div class="logo">BreakBite</div>
+    <p>Less waiting, more break. Manage your canteen orders and menu from one place.</p>
   </div>
-
-  <!-- ============ 2. WAITING TIME ============ -->
-  <section>
-    <h2>Waiting time</h2>
-    <div>Queue-te order: <span class="wait" id="queue-count">0</span></div>
-    <div>Estimated waiting time: <span class="wait" id="wait-time">0 min</span></div>
-    <div class="row" style="margin-top:10px">
-      <label>Per order koto minute:
-        <input type="number" id="minutes-per-order" min="1" value="3" style="width:70px" onchange="saveSettings()">
+  <div class="login-form">
+    <form onsubmit="login(event)">
+      <h2>Staff login</h2>
+      <p class="muted">Only canteen staff can open this page.</p>
+      <label class="field">Username
+        <input type="text" id="username" autocomplete="username" required>
       </label>
-    </div>
-  </section>
-
-  <!-- ============ 3. ORDERS ============ -->
-  <section>
-    <h2>Orders</h2>
-    <div class="row">
-      <button class="grey" onclick="addTestOrder()">Test order add koro</button>
-      <button class="red" onclick="clearDoneOrders()">Done order gula muche felo</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Token</th><th>Items</th><th>Total</th><th>Time</th><th>Status</th><th>Action</th></tr>
-        </thead>
-        <tbody id="orders-body"></tbody>
-      </table>
-    </div>
-    <p id="orders-empty" class="muted hidden">Ekhono kono order nai.</p>
-  </section>
-
-  <!-- ============ 4. MENU ============ -->
-  <section>
-    <h2>Menu manage</h2>
-    <div class="row">
-      <input type="text" id="food-name" placeholder="Food-er nam">
-      <input type="number" id="food-price" placeholder="Price (Tk)" min="0" style="width:110px">
-      <button onclick="addFood()">Add koro</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Food</th><th>Price</th><th>Available?</th><th>Action</th></tr>
-        </thead>
-        <tbody id="menu-body"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- ============ 5. FOOD WASTE SAVER ============ -->
-  <section>
-    <h2>Food Waste Saver</h2>
-    <p class="muted">Din-er shesh-e bachche thaka khabar discount-e dao, jate fele dite na hoy.</p>
-    <div class="row">
-      <select id="waste-food"></select>
-      <input type="number" id="waste-percent" value="30" min="5" max="90" style="width:80px"> % discount
-      <button onclick="startDiscount()">Discount chalu koro</button>
-    </div>
-    <div id="waste-list"></div>
-  </section>
+      <label class="field">Password
+        <input type="password" id="password" autocomplete="current-password" required>
+      </label>
+      <div class="msg" id="login-error" role="alert"></div>
+      <button type="submit">Log in</button>
+    </form>
+  </div>
 </div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="brand">BreakBite</div>
+    <nav class="tabs" aria-label="Staff sections">
+      <button class="tab active" data-tab="orders" onclick="showTab('orders')">Orders</button>
+      <button class="tab" data-tab="menu" onclick="showTab('menu')">Menu</button>
+      <button class="tab" data-tab="waste" onclick="showTab('waste')">Food Waste Saver</button>
+      <button class="tab" data-tab="settings" onclick="showTab('settings')">Settings</button>
+    </nav>
+    <div class="right"><button class="ghost small" onclick="logout()">Log out</button></div>
+  </header>
+
+  <main>
+
+    <!-- ===== ORDERS ===== -->
+    <section class="panel active" id="panel-orders">
+      <h2>Orders</h2>
+      <div class="stats">
+        <div class="stat"><div class="muted">Orders in queue</div><div class="num" id="queue-count">0</div></div>
+        <div class="stat" id="wait-stat"><div class="muted">Estimated waiting time</div><div class="num" id="wait-time">0 min</div></div>
+        <div class="stat"><div class="muted">Ready for pickup</div><div class="num" id="ready-count">0</div></div>
+      </div>
+
+      <div class="row" style="margin-bottom:16px">
+        <button class="ghost small" onclick="addTestOrder()">Add test order</button>
+        <button class="danger small" onclick="clearDoneOrders()">Clear completed orders</button>
+      </div>
+
+      <div class="board">
+        <div class="col"><h3>Pending <span class="count" id="cnt-Pending">0</span></h3><div id="col-Pending"></div></div>
+        <div class="col"><h3>Preparing <span class="count" id="cnt-Preparing">0</span></h3><div id="col-Preparing"></div></div>
+        <div class="col"><h3>Ready <span class="count" id="cnt-Ready">0</span></h3><div id="col-Ready"></div></div>
+      </div>
+
+      <div class="card" style="margin-top:20px">
+        <h3>Completed orders</h3>
+        <div id="done-list"></div>
+      </div>
+    </section>
+
+    <!-- ===== MENU ===== -->
+    <section class="panel" id="panel-menu">
+      <h2>Menu</h2>
+      <div class="card">
+        <h3>Add a food item</h3>
+        <div class="row">
+          <input type="text" id="food-name" placeholder="Food name" aria-label="Food name">
+          <input type="number" id="food-price" placeholder="Price (Tk)" min="0" style="width:130px" aria-label="Price">
+          <button onclick="addFood()">Add item</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Current menu</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Food</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="menu-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== FOOD WASTE SAVER ===== -->
+    <section class="panel" id="panel-waste">
+      <h2>Food Waste Saver</h2>
+      <div class="card">
+        <h3>Discount leftover food</h3>
+        <p class="muted" style="margin-top:0">At the end of the day, put unsold food on discount so it does not go to waste. Students will see the lower price.</p>
+        <div class="row">
+          <select id="waste-food" aria-label="Food item"></select>
+          <input type="number" id="waste-percent" value="30" min="5" max="90" style="width:90px" aria-label="Discount percent">
+          <span>% off</span>
+          <button onclick="startDiscount()">Start discount</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Active discounts</h3>
+        <div id="waste-list"></div>
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS ===== -->
+    <section class="panel" id="panel-settings">
+      <h2>Settings</h2>
+      <div class="card">
+        <h3>Waiting time</h3>
+        <label class="field" style="max-width:260px">Minutes to prepare one order
+          <input type="number" id="minutes-per-order" min="1" onchange="saveSettings()">
+        </label>
+      </div>
+      <div class="card" style="max-width:420px">
+        <h3>Change password</h3>
+        <label class="field">Current password<input type="password" id="pw-old"></label>
+        <label class="field">New password (at least 4 characters)<input type="password" id="pw-new"></label>
+        <label class="field">Confirm new password<input type="password" id="pw-new2"></label>
+        <button onclick="changePassword()">Save new password</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast" class="hidden" role="status"></div>
 
 <script>
 /* =====================================================
-   DATABASE = browser-er localStorage
-   3 ta jinish save hoy:
-   - breakbite_menu     : food-er list
-   - breakbite_orders   : order-er list
-   - breakbite_settings : minutes per order
+   DATABASE = the browser's localStorage
+   Keys used (student.html must use the same keys):
+   - breakbite_menu      : list of food items
+   - breakbite_orders    : list of orders
+   - breakbite_settings  : { minutesPerOrder }
+   - breakbite_staff_auth: { user, pass } (staff login)
 
-   Menu item:  { id, name, price, available, discount }
-   Order:      { token, items:[{name, qty, price}], total, status, time }
-   Status:     Pending -> Preparing -> Ready -> Done
-
-   >>> Sadnan (student.html) ke ei format ta dite hobe <<<
+   Menu item : { id, name, price, available, discount }
+   Order     : { token, items:[{name, qty, price}], total, status, time }
+   Status    : Pending -> Preparing -> Ready -> Done
    ===================================================== */
 
-const STAFF_USER = "staff";
-const STAFF_PASS = "1234";   // contest-er jonno simple password
-
 const STATUS_FLOW = ["Pending", "Preparing", "Ready", "Done"];
+const NEXT_LABEL = { Pending: "Start preparing", Preparing: "Mark ready", Ready: "Mark done" };
 
-// ---------- localStorage helper ----------
+// ---------- helpers ----------
 function load(key, fallback) {
   try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
-  } catch (e) {
-    return fallback;
-  }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) { return fallback; }
 }
-function save(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+function save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+function $(id) { return document.getElementById(id); }
+function escapeHtml(text) {
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+let toastTimer;
+function toast(message) {
+  const t = $("toast");
+  t.textContent = message;
+  t.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 2500);
 }
 
-function getMenu()     { return load("breakbite_menu", null) || defaultMenu(); }
-function getOrders()   { return load("breakbite_orders", []); }
-function getSettings() { return load("breakbite_settings", { minutesPerOrder: 3 }); }
-
-function defaultMenu() {
-  const menu = [
+function getMenu() {
+  const menu = load("breakbite_menu", null);
+  if (menu) return menu;
+  const starter = [
     { id: 1, name: "Chicken Burger", price: 120, available: true, discount: 0 },
     { id: 2, name: "Singara",        price: 15,  available: true, discount: 0 },
     { id: 3, name: "Tea",            price: 10,  available: true, discount: 0 },
     { id: 4, name: "Biryani",        price: 150, available: true, discount: 0 }
   ];
-  save("breakbite_menu", menu);
-  return menu;
+  save("breakbite_menu", starter);
+  return starter;
 }
+function getOrders()   { return load("breakbite_orders", []); }
+function getSettings() { return load("breakbite_settings", { minutesPerOrder: 3 }); }
+function getAuth()     { return load("breakbite_staff_auth", { user: "staff", pass: "1234" }); }
+function finalPrice(food) { return Math.round(food.price * (100 - food.discount) / 100); }
 
-// ---------- 1. LOGIN ----------
-function login() {
-  const u = document.getElementById("username").value.trim();
-  const p = document.getElementById("password").value;
-  if (u === STAFF_USER && p === STAFF_PASS) {
+// ---------- login ----------
+function login(event) {
+  event.preventDefault();
+  const auth = getAuth();
+  if ($("username").value.trim() === auth.user && $("password").value === auth.pass) {
     sessionStorage.setItem("breakbite_staff", "yes");
-    showDashboard();
+    openApp();
   } else {
-    document.getElementById("login-error").textContent = "Username ba password bhul.";
+    $("login-error").textContent = "Wrong username or password. Please try again.";
   }
 }
 function logout() {
   sessionStorage.removeItem("breakbite_staff");
   location.reload();
 }
-function showDashboard() {
-  document.getElementById("login-box").classList.add("hidden");
-  document.getElementById("dashboard").classList.remove("hidden");
+function openApp() {
+  $("login-screen").classList.add("hidden");
+  $("app").classList.remove("hidden");
   refreshAll();
 }
 
-// ---------- 2. WAITING TIME ----------
-function updateWaitingTime() {
-  const orders = getOrders();
-  const inQueue = orders.filter(o => o.status === "Pending" || o.status === "Preparing").length;
-  const perOrder = getSettings().minutesPerOrder;
-  document.getElementById("queue-count").textContent = inQueue;
-  document.getElementById("wait-time").textContent = (inQueue * perOrder) + " min";
-  document.getElementById("minutes-per-order").value = perOrder;
-}
-function saveSettings() {
-  const v = parseInt(document.getElementById("minutes-per-order").value, 10);
-  save("breakbite_settings", { minutesPerOrder: v > 0 ? v : 3 });
-  updateWaitingTime();
+// ---------- tabs ----------
+function showTab(name) {
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  $("panel-" + name).classList.add("active");
 }
 
-// ---------- 3. ORDERS ----------
+// ---------- orders ----------
 function renderOrders() {
   const orders = getOrders();
-  const body = document.getElementById("orders-body");
-  body.innerHTML = "";
-  document.getElementById("orders-empty").classList.toggle("hidden", orders.length > 0);
+  const perOrder = getSettings().minutesPerOrder;
+  const queue = orders.filter(o => o.status === "Pending" || o.status === "Preparing").length;
+  const ready = orders.filter(o => o.status === "Ready").length;
 
-  orders.forEach(order => {
-    const items = order.items.map(i => i.name + " x" + i.qty).join(", ");
-    const idx = STATUS_FLOW.indexOf(order.status);
-    const next = STATUS_FLOW[idx + 1];
-    const btn = next
-      ? `<button onclick="changeStatus(${order.token})">${next} koro</button>`
-      : `<span class="muted">Shesh</span>`;
-    body.innerHTML += `
-      <tr>
-        <td><b>#${order.token}</b></td>
-        <td>${escapeHtml(items)}</td>
-        <td>${order.total} Tk</td>
-        <td>${order.time}</td>
-        <td><span class="tag ${order.status}">${order.status}</span></td>
-        <td>${btn}</td>
-      </tr>`;
+  $("queue-count").textContent = queue;
+  $("wait-time").textContent = (queue * perOrder) + " min";
+  $("ready-count").textContent = ready;
+  $("wait-stat").classList.toggle("hot", queue >= 8);
+  $("minutes-per-order").value = perOrder;
+
+  ["Pending", "Preparing", "Ready"].forEach(status => {
+    const list = orders.filter(o => o.status === status);
+    $("cnt-" + status).textContent = list.length;
+    $("col-" + status).innerHTML = list.length
+      ? list.map(ticketHtml).join("")
+      : `<div class="empty">No ${status.toLowerCase()} orders.</div>`;
   });
+
+  const done = orders.filter(o => o.status === "Done");
+  $("done-list").innerHTML = done.length
+    ? done.map(o => `<div class="row" style="padding:4px 0"><span class="badge off">#${o.token}</span>
+        <span>${escapeHtml(itemsText(o))}</span><span class="muted">${o.total} Tk, ${o.time}</span></div>`).join("")
+    : `<div class="empty">Nothing completed yet.</div>`;
 }
-function changeStatus(token) {
+function itemsText(order) { return order.items.map(i => i.name + " x" + i.qty).join(", "); }
+function ticketHtml(o) {
+  return `
+    <div class="ticket ${o.status}">
+      <div class="stub"><small>Token</small><b>${o.token}</b></div>
+      <div class="body">
+        <div class="items">${escapeHtml(itemsText(o))}</div>
+        <div class="meta">${o.total} Tk, ordered at ${o.time}</div>
+        <button class="small" onclick="advanceOrder(${o.token})">${NEXT_LABEL[o.status]}</button>
+      </div>
+    </div>`;
+}
+function advanceOrder(token) {
   const orders = getOrders();
   const order = orders.find(o => o.token === token);
   if (!order) return;
@@ -236,19 +414,18 @@ function changeStatus(token) {
   refreshAll();
 }
 function clearDoneOrders() {
-  const orders = getOrders().filter(o => o.status !== "Done");
-  save("breakbite_orders", orders);
+  save("breakbite_orders", getOrders().filter(o => o.status !== "Done"));
   refreshAll();
+  toast("Completed orders cleared.");
 }
-// Student page ready na howa porjonto test korar jonno
 function addTestOrder() {
-  const menu = getMenu().filter(f => f.available);
-  if (menu.length === 0) { alert("Age menu-te available food rakho."); return; }
+  const available = getMenu().filter(f => f.available);
+  if (!available.length) { toast("Add an available food item first."); return; }
   const orders = getOrders();
-  const food = menu[Math.floor(Math.random() * menu.length)];
+  const food = available[Math.floor(Math.random() * available.length)];
   const qty = 1 + Math.floor(Math.random() * 3);
+  const price = finalPrice(food);
   const lastToken = orders.length ? Math.max(...orders.map(o => o.token)) : 100;
-  const price = foodPrice(food);
   orders.push({
     token: lastToken + 1,
     items: [{ name: food.name, qty: qty, price: price }],
@@ -260,48 +437,37 @@ function addTestOrder() {
   refreshAll();
 }
 
-// ---------- 4. MENU ----------
-function foodPrice(food) {
-  // discount thakle kome jaoa price
-  return Math.round(food.price * (100 - food.discount) / 100);
-}
+// ---------- menu ----------
 function renderMenu() {
-  const menu = getMenu();
-  const body = document.getElementById("menu-body");
-  body.innerHTML = "";
-  menu.forEach(food => {
-    const priceText = food.discount > 0
-      ? `<s>${food.price}</s> <b>${foodPrice(food)} Tk</b> <span class="tag">${food.discount}% off</span>`
-      : `${food.price} Tk`;
-    body.innerHTML += `
+  $("menu-body").innerHTML = getMenu().map(f => {
+    const price = f.discount > 0
+      ? `<s class="off-text">${f.price}</s> <b>${finalPrice(f)} Tk</b> <span class="badge">${f.discount}% off</span>`
+      : `${f.price} Tk`;
+    return `
       <tr>
-        <td>${escapeHtml(food.name)}</td>
-        <td>${priceText}</td>
-        <td>
-          <button class="${food.available ? "" : "grey"}" onclick="toggleAvailable(${food.id})">
-            ${food.available ? "Available" : "Shesh"}
-          </button>
-        </td>
-        <td>
-          <button class="grey" onclick="editFood(${food.id})">Edit</button>
-          <button class="red" onclick="deleteFood(${food.id})">Delete</button>
+        <td>${escapeHtml(f.name)}</td>
+        <td>${price}</td>
+        <td><span class="badge ${f.available ? "green" : "off"}">${f.available ? "Available" : "Sold out"}</span></td>
+        <td class="row">
+          <button class="ghost small" onclick="toggleAvailable(${f.id})">${f.available ? "Mark sold out" : "Mark available"}</button>
+          <button class="ghost small" onclick="editFood(${f.id})">Edit</button>
+          <button class="danger small" onclick="deleteFood(${f.id})">Delete</button>
         </td>
       </tr>`;
-  });
+  }).join("");
 }
 function addFood() {
-  const nameBox = document.getElementById("food-name");
-  const priceBox = document.getElementById("food-price");
-  const name = nameBox.value.trim();
-  const price = parseInt(priceBox.value, 10);
-  if (!name || isNaN(price) || price < 0) { alert("Food-er nam ar sothik price dao."); return; }
+  const name = $("food-name").value.trim();
+  const price = parseInt($("food-price").value, 10);
+  if (!name || isNaN(price) || price < 0) { toast("Enter a food name and a valid price."); return; }
   const menu = getMenu();
-  const newId = menu.length ? Math.max(...menu.map(f => f.id)) + 1 : 1;
-  menu.push({ id: newId, name: name, price: price, available: true, discount: 0 });
+  const id = menu.length ? Math.max(...menu.map(f => f.id)) + 1 : 1;
+  menu.push({ id: id, name: name, price: price, available: true, discount: 0 });
   save("breakbite_menu", menu);
-  nameBox.value = "";
-  priceBox.value = "";
+  $("food-name").value = "";
+  $("food-price").value = "";
   refreshAll();
+  toast(name + " added to the menu.");
 }
 function toggleAvailable(id) {
   const menu = getMenu();
@@ -314,55 +480,49 @@ function editFood(id) {
   const menu = getMenu();
   const food = menu.find(f => f.id === id);
   if (!food) return;
-  const newName = prompt("Notun nam:", food.name);
-  if (newName === null) return;
-  const newPrice = prompt("Notun price (Tk):", food.price);
-  if (newPrice === null) return;
-  const p = parseInt(newPrice, 10);
-  if (!newName.trim() || isNaN(p) || p < 0) { alert("Nam ba price thik na."); return; }
-  food.name = newName.trim();
-  food.price = p;
+  const name = prompt("Food name:", food.name);
+  if (name === null) return;
+  const priceText = prompt("Price (Tk):", food.price);
+  if (priceText === null) return;
+  const price = parseInt(priceText, 10);
+  if (!name.trim() || isNaN(price) || price < 0) { toast("Name or price is not valid."); return; }
+  food.name = name.trim();
+  food.price = price;
   save("breakbite_menu", menu);
   refreshAll();
+  toast("Menu item updated.");
 }
 function deleteFood(id) {
-  if (!confirm("Ei food ta delete korbe?")) return;
-  const menu = getMenu().filter(f => f.id !== id);
-  save("breakbite_menu", menu);
+  if (!confirm("Delete this food item?")) return;
+  save("breakbite_menu", getMenu().filter(f => f.id !== id));
   refreshAll();
 }
 
-// ---------- 5. FOOD WASTE SAVER ----------
+// ---------- food waste saver ----------
 function renderWaste() {
   const menu = getMenu();
-  const select = document.getElementById("waste-food");
-  select.innerHTML = "";
-  menu.filter(f => f.available).forEach(f => {
-    select.innerHTML += `<option value="${f.id}">${escapeHtml(f.name)} (${f.price} Tk)</option>`;
-  });
-
-  const list = document.getElementById("waste-list");
+  $("waste-food").innerHTML = menu.filter(f => f.available)
+    .map(f => `<option value="${f.id}">${escapeHtml(f.name)} (${f.price} Tk)</option>`).join("");
   const discounted = menu.filter(f => f.discount > 0);
-  if (discounted.length === 0) {
-    list.innerHTML = `<p class="muted">Ekhon kono discount chalu nai.</p>`;
-    return;
-  }
-  list.innerHTML = discounted.map(f => `
-    <div class="row">
-      <span>${escapeHtml(f.name)}: ${f.discount}% off, ekhon ${foodPrice(f)} Tk</span>
-      <button class="grey" onclick="stopDiscount(${f.id})">Bondho koro</button>
-    </div>`).join("");
+  $("waste-list").innerHTML = discounted.length
+    ? discounted.map(f => `
+        <div class="row" style="padding:6px 0">
+          <span><b>${escapeHtml(f.name)}</b>: ${f.discount}% off, now ${finalPrice(f)} Tk</span>
+          <button class="ghost small" onclick="stopDiscount(${f.id})">Stop discount</button>
+        </div>`).join("")
+    : `<div class="empty">No discounts running. Pick a food above to start one.</div>`;
 }
 function startDiscount() {
-  const id = parseInt(document.getElementById("waste-food").value, 10);
-  const percent = parseInt(document.getElementById("waste-percent").value, 10);
-  if (isNaN(id)) { alert("Age ekta food bachho."); return; }
-  if (isNaN(percent) || percent < 5 || percent > 90) { alert("Discount 5 theke 90 er moddhe dao."); return; }
+  const id = parseInt($("waste-food").value, 10);
+  const percent = parseInt($("waste-percent").value, 10);
+  if (isNaN(id)) { toast("Choose a food item first."); return; }
+  if (isNaN(percent) || percent < 5 || percent > 90) { toast("Discount must be between 5 and 90."); return; }
   const menu = getMenu();
   const food = menu.find(f => f.id === id);
   if (food) food.discount = percent;
   save("breakbite_menu", menu);
   refreshAll();
+  toast("Discount started.");
 }
 function stopDiscount(id) {
   const menu = getMenu();
@@ -372,32 +532,33 @@ function stopDiscount(id) {
   refreshAll();
 }
 
-// ---------- shared ----------
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+// ---------- settings ----------
+function saveSettings() {
+  const v = parseInt($("minutes-per-order").value, 10);
+  save("breakbite_settings", { minutesPerOrder: v > 0 ? v : 3 });
+  refreshAll();
+  toast("Waiting time setting saved.");
 }
-function refreshAll() {
-  updateWaitingTime();
-  renderOrders();
-  renderMenu();
-  renderWaste();
+function changePassword() {
+  const auth = getAuth();
+  const oldPw = $("pw-old").value, newPw = $("pw-new").value, newPw2 = $("pw-new2").value;
+  if (oldPw !== auth.pass) { toast("Current password is wrong."); return; }
+  if (newPw.length < 4) { toast("New password needs at least 4 characters."); return; }
+  if (newPw !== newPw2) { toast("New passwords do not match."); return; }
+  save("breakbite_staff_auth", { user: auth.user, pass: newPw });
+  $("pw-old").value = $("pw-new").value = $("pw-new2").value = "";
+  toast("Password changed.");
 }
 
-// Page khulle: age login kora thakle sorasori dashboard
-if (sessionStorage.getItem("breakbite_staff") === "yes") {
-  showDashboard();
-}
-// Enter chaple login hoy
-document.getElementById("password").addEventListener("keydown", function (e) {
-  if (e.key === "Enter") login();
-});
-// Onno tab-e (jemon student page) data change hole ekhane auto update
+// ---------- start ----------
+function refreshAll() { renderOrders(); renderMenu(); renderWaste(); }
+
+if (sessionStorage.getItem("breakbite_staff") === "yes") openApp();
+
+// Auto-update when another tab (the student page) changes the data
 window.addEventListener("storage", function () {
   if (sessionStorage.getItem("breakbite_staff") === "yes") refreshAll();
 });
 </script>
 </body>
 </html>
-
