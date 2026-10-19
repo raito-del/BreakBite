@@ -41,20 +41,19 @@
     <button id="order-btn" disabled>Place pre-order</button>
   </div>
 
-  <div class="card" id="track-card" hidden>
-    <h2>Your order</h2>
-    <div class="ticket-big">
-      <small>Your token</small>
-      <div class="tok" id="t-token">-</div>
-      <div class="muted" id="t-items"></div>
+  <div class="card" id="orders-card" hidden>
+    <h2>Your orders</h2>
+    <div id="my-orders"></div>
+  </div>
+
+  <div class="card">
+    <h2>Check a token</h2>
+    <p class="muted">Forgot your status? Enter your token number.</p>
+    <div class="form-row">
+      <input type="number" id="lookup-token" placeholder="Token number" min="1">
+      <button id="lookup-btn">Check status</button>
     </div>
-    <div class="steps">
-      <div class="step" data-s="Received"><span>1</span>Received</div>
-      <div class="step" data-s="Preparing"><span>2</span>Preparing</div>
-      <div class="step" data-s="Ready"><span>3</span>Ready</div>
-    </div>
-    <p class="track-msg" id="t-msg"></p>
-    <button class="ghost small" id="new-order-btn">Start a new order</button>
+    <div id="lookup-result"></div>
   </div>
 </main>
 
@@ -63,16 +62,18 @@
 <script type="module">
 import { db } from "./firebase.js";
 import {
-  collection, doc, onSnapshot, query, orderBy, where, runTransaction, serverTimestamp
+  collection, doc, onSnapshot, query, orderBy, where, getDocs, runTransaction, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const STEPS = ["Received", "Preparing", "Ready"];
-const SAVED_KEY = "breakbite_order";
+const KEY = "breakbite_orders";      // list of order IDs this browser placed
+const OLD_KEY = "breakbite_order";   // single ID used by the earlier version
 
 let menu = [];
 let qty = {};
 let pending = 0;
-let trackUnsub = null;
+let live = {};       // orderId -> latest order data
+let watching = {};   // orderId -> unsubscribe function
 
 const $ = function (id) { return document.getElementById(id); };
 
@@ -102,6 +103,54 @@ function cartItems() {
   return menu
     .filter(function (f) { return qty[f.id] > 0; })
     .map(function (f) { return { name: f.name, qty: qty[f.id], price: price(f) }; });
+}
+
+// ---------- saved order IDs ----------
+function loadIds() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; }
+}
+function saveIds(ids) {
+  localStorage.setItem(KEY, JSON.stringify(ids));
+}
+function addId(id) {
+  const ids = loadIds();
+  if (ids.indexOf(id) < 0) ids.push(id);
+  saveIds(ids);
+}
+function removeId(id) {
+  saveIds(loadIds().filter(function (x) { return x !== id; }));
+  if (watching[id]) { watching[id](); delete watching[id]; }
+  delete live[id];
+  renderMyOrders();
+}
+
+// Move an order saved by the earlier version into the new list
+(function migrate() {
+  const old = localStorage.getItem(OLD_KEY);
+  if (old) {
+    addId(old);
+    localStorage.removeItem(OLD_KEY);
+  }
+})();
+
+// ---------- status helpers ----------
+function stepsHtml(status) {
+  const idx = status === "Done" ? STEPS.length : STEPS.indexOf(status);
+  return '<div class="steps">' + STEPS.map(function (s, i) {
+    const cls = i < idx ? " done" : (i === idx ? " now" : "");
+    return '<div class="step' + cls + '"><span>' + (i + 1) + '</span>' + s + '</div>';
+  }).join("") + '</div>';
+}
+
+function statusMessage(status) {
+  if (status === "Ready") return "Ready! Please collect your food.";
+  if (status === "Preparing") return "Your food is being prepared.";
+  if (status === "Done") return "Thank you! Order collected.";
+  return "Waiting. Estimated " + waitMinutes() + " min.";
+}
+
+function itemsText(o) {
+  return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
 }
 
 // ---------- Menu ----------
@@ -173,6 +222,42 @@ onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "P
   function (err) { console.error(err); }
 );
 
+// ---------- Your orders (all active orders from this browser) ----------
+function renderMyOrders() {
+  const ids = Object.keys(live);
+  $("orders-card").hidden = ids.length === 0;
+  $("my-orders").innerHTML = ids.map(function (id) {
+    const o = live[id];
+    return '<div class="card">' +
+      '<div class="ticket-big">' +
+        '<small>Your token</small>' +
+        '<div class="tok">' + o.token + '</div>' +
+        '<div class="muted">' + esc(itemsText(o)) + '</div>' +
+      '</div>' +
+      stepsHtml(o.status) +
+      '<p class="track-msg">' + statusMessage(o.status) + '</p>' +
+    '</div>';
+  }).join("");
+}
+
+function watch(id) {
+  if (watching[id]) return;
+  watching[id] = onSnapshot(doc(db, "orders", id),
+    function (snap) {
+      if (!snap.exists()) { removeId(id); return; }
+      const o = snap.data();
+      if (o.status === "Done") {
+        toast("Token " + o.token + " collected. Thank you!");
+        removeId(id);
+      } else {
+        live[id] = o;
+        renderMyOrders();
+      }
+    },
+    function (err) { console.error(err); }
+  );
+}
+
 // ---------- Place order ----------
 $("order-btn").addEventListener("click", async function () {
   const items = cartItems();
@@ -199,10 +284,11 @@ $("order-btn").addEventListener("click", async function () {
         createdAt: serverTimestamp()
       });
     });
-    localStorage.setItem(SAVED_KEY, orderRef.id);
+    addId(orderRef.id);
     qty = {};
     drawMenu();
-    track(orderRef.id);
+    updateCart();
+    watch(orderRef.id);
     toast("Order placed!");
   } catch (err) {
     toast("Could not place the order. Check your internet and try again.");
@@ -212,45 +298,30 @@ $("order-btn").addEventListener("click", async function () {
   updateCart();
 });
 
-// ---------- Token tracking ----------
-function track(id) {
-  if (trackUnsub) trackUnsub();
-  $("track-card").hidden = false;
-  trackUnsub = onSnapshot(doc(db, "orders", id),
-    function (snap) {
-      if (!snap.exists()) return;
-      const o = snap.data();
-      $("t-token").textContent = o.token;
-      $("t-items").textContent = o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
-
-      const idx = o.status === "Done" ? STEPS.length : STEPS.indexOf(o.status);
-      document.querySelectorAll(".step").forEach(function (el) {
-        const i = STEPS.indexOf(el.dataset.s);
-        el.classList.toggle("done", i < idx);
-        el.classList.toggle("now", i === idx);
-      });
-
-      let msg;
-      if (o.status === "Ready") msg = "Ready! Please collect your food.";
-      else if (o.status === "Preparing") msg = "Your food is being prepared.";
-      else if (o.status === "Done") msg = "Thank you! Order collected.";
-      else msg = "Waiting. Estimated " + waitMinutes() + " min.";
-      $("t-msg").textContent = msg;
-    },
-    function (err) { console.error(err); }
-  );
-}
-
-$("new-order-btn").addEventListener("click", function () {
-  localStorage.removeItem(SAVED_KEY);
-  if (trackUnsub) trackUnsub();
-  trackUnsub = null;
-  $("track-card").hidden = true;
+// ---------- Check any token ----------
+$("lookup-btn").addEventListener("click", async function () {
+  const n = parseInt($("lookup-token").value, 10);
+  if (isNaN(n) || n < 1) { toast("Enter a valid token number."); return; }
+  try {
+    const snap = await getDocs(query(collection(db, "orders"), where("token", "==", n)));
+    if (snap.empty) {
+      $("lookup-result").innerHTML = '<p class="muted">Token ' + n + ' not found.</p>';
+      return;
+    }
+    const o = snap.docs[0].data();
+    $("lookup-result").innerHTML =
+      '<div class="ticket-big"><small>Token</small><div class="tok">' + o.token + '</div>' +
+      '<div class="muted">' + esc(itemsText(o)) + '</div></div>' +
+      stepsHtml(o.status) +
+      '<p class="track-msg">' + statusMessage(o.status) + '</p>';
+  } catch (err) {
+    toast("Could not check the token. Try again.");
+    console.error(err);
+  }
 });
 
-// Resume tracking after a page refresh
-const saved = localStorage.getItem(SAVED_KEY);
-if (saved) track(saved);
+// ---------- Start: reconnect every order saved in this browser ----------
+loadIds().forEach(watch);
 </script>
 </body>
 </html>
