@@ -2,100 +2,375 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BreakBite - Student</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BreakBite</title>
+  <style>
+    :root {
+      --ink: #14302b;
+      --ink-soft: #5b716b;
+      --paper: #f2f6f4;
+      --card: #ffffff;
+      --line: #d8e3de;
+      --green: #1f7a5c;
+      --green-dark: #165c45;
+      --amber: #f2a93b;
+      --amber-soft: #fdf0d5;
+      --mint-soft: #d9f2e6;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+    }
+    h1, h2 { margin: 0; line-height: 1.2; }
+    button {
+      font: inherit; border: 0; border-radius: 8px; padding: 9px 16px;
+      background: var(--green); color: #fff; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: var(--green-dark); }
+    button:disabled { opacity: .5; cursor: not-allowed; background: var(--green); }
+    button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button.ghost:hover { background: var(--paper); }
+    button.small { padding: 6px 12px; font-size: 14px; }
+    button:focus-visible, a:focus-visible {
+      outline: 3px solid var(--amber); outline-offset: 2px;
+    }
+    .muted { color: var(--ink-soft); }
+
+    /* ---------- Header ---------- */
+    header.top {
+      background: var(--card); border-bottom: 1px solid var(--line);
+      padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .brand { font-size: 22px; font-weight: 800; color: var(--green); letter-spacing: -.5px; }
+    .tabs { display: flex; gap: 4px; margin-left: 16px; flex-wrap: wrap; }
+    .tab {
+      color: var(--ink-soft); text-decoration: none; padding: 8px 14px;
+      border-radius: 8px; font-weight: 600;
+    }
+    .tab:hover { background: var(--paper); }
+    .tab.active { background: var(--mint-soft); color: var(--green-dark); }
+
+    /* ---------- Layout ---------- */
+    main { max-width: 720px; margin: 0 auto; padding: 24px; }
+    .hero { margin-bottom: 20px; }
+    .hero h1 { font-size: 30px; margin-bottom: 6px; }
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 20px;
+    }
+    .card h2 { font-size: 18px; margin-bottom: 12px; }
+
+    /* ---------- Rush radar ---------- */
+    .rush { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .rush .label { font-weight: 700; }
+    .rush .num { font-size: 36px; font-weight: 800; color: var(--green); }
+
+    /* ---------- Menu ---------- */
+    .item {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 12px 0; border-bottom: 1px solid var(--line);
+    }
+    .item:last-child { border-bottom: 0; }
+    .name { font-weight: 700; font-size: 16px; }
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 13px; background: var(--amber-soft);
+    }
+    .stepper { display: flex; align-items: center; gap: 10px; }
+    .stepper span { min-width: 24px; text-align: center; font-weight: 700; }
+    .empty { color: var(--ink-soft); padding: 8px 0; }
+
+    /* ---------- Cart bar ---------- */
+    .cart {
+      position: sticky; bottom: 12px; background: var(--ink); color: #fff;
+      border-radius: var(--radius); padding: 14px 18px; margin-bottom: 20px;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .15);
+    }
+    .cart button { background: var(--amber); color: var(--ink); }
+    .cart button:hover { background: #e0962a; }
+
+    /* ---------- Token tracking ---------- */
+    .ticket-big { text-align: center; padding: 8px 0; }
+    .ticket-big small { color: var(--ink-soft); font-size: 14px; }
+    .ticket-big .tok { font-size: 56px; font-weight: 800; color: var(--green); line-height: 1.1; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+    .step {
+      text-align: center; padding: 12px 6px; border-radius: 10px;
+      background: #e7eeea; color: var(--ink-soft); font-weight: 600; font-size: 14px;
+    }
+    .step span { display: block; font-size: 20px; font-weight: 800; }
+    .step.done { background: var(--mint-soft); color: var(--green-dark); }
+    .step.now { background: var(--green); color: #fff; }
+    .track-msg { text-align: center; font-weight: 600; margin-bottom: 12px; }
+
+    /* ---------- Toast ---------- */
+    #toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: #fff; padding: 10px 18px;
+      border-radius: 8px; z-index: 10;
+    }
+
+    @media (max-width: 600px) {
+      main { padding: 16px; }
+      .hero h1 { font-size: 24px; }
+      .tabs { margin-left: 0; width: 100%; }
+      .steps { gap: 6px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
 </head>
 <body>
-  <h1>BreakBite Student Page</h1>
-  <a href="index.html">Home</a> |
-  <a href="planner.html">Break Planner</a>
 
-  <h2>Rush Radar</h2>
-  <p id="rush">Checking canteen rush...</p>
+<header class="top">
+  <div class="brand">BreakBite</div>
+  <nav class="tabs" aria-label="Student sections">
+    <a class="tab active" href="student.html">Order</a>
+    <a class="tab" href="planner.html">Break Planner</a>
+    <a class="tab" href="index.html">Home</a>
+  </nav>
+</header>
 
-  <h2>Today's Menu</h2>
-  <p>Choose the quantity of each item and place your pre-order.</p>
+<main>
+  <section class="hero">
+    <h1>Pre-order, skip the queue.</h1>
+    <p class="muted">Pick your food, place the order, and collect it when your token is ready.</p>
+  </section>
 
-  <table border="1" cellpadding="8">
-    <tr>
-      <th>Item</th>
-      <th>Price (Tk)</th>
-      <th>Quantity</th>
-    </tr>
-    <tr>
-      <td>Khichuri</td>
-      <td>60</td>
-      <td><input type="number" class="qty" data-price="60" min="0" value="0"></td>
-    </tr>
-    <tr>
-      <td>Chicken Roll</td>
-      <td>80</td>
-      <td><input type="number" class="qty" data-price="80" min="0" value="0"></td>
-    </tr>
-    <tr>
-      <td>Singara</td>
-      <td>10</td>
-      <td><input type="number" class="qty" data-price="10" min="0" value="0"></td>
-    </tr>
-    <tr>
-      <td>Tea</td>
-      <td>15</td>
-      <td><input type="number" class="qty" data-price="15" min="0" value="0"></td>
-    </tr>
-  </table>
+  <div class="card rush">
+    <div>
+      <div class="label">Canteen rush</div>
+      <div class="muted" id="rush-text">Checking...</div>
+    </div>
+    <div class="num" id="rush-num">-</div>
+  </div>
 
-  <br>
-  <button onclick="placeOrder()">Place Pre-order</button>
+  <div class="card">
+    <h2>Today's menu</h2>
+    <div id="menu-list"><div class="empty">Loading menu...</div></div>
+  </div>
 
-  <h2>Your Order</h2>
-  <p id="result">No order placed yet.</p>
+  <div class="cart">
+    <span id="cart-text">No items selected</span>
+    <button id="order-btn" disabled>Place pre-order</button>
+  </div>
 
-  <script>
-    function showRush() {
-      var hour = new Date().getHours();
-      var text = "";
+  <div class="card" id="track-card" hidden>
+    <h2>Your order</h2>
+    <div class="ticket-big">
+      <small>Your token</small>
+      <div class="tok" id="t-token">-</div>
+      <div class="muted" id="t-items"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-s="Received"><span>1</span>Received</div>
+      <div class="step" data-s="Preparing"><span>2</span>Preparing</div>
+      <div class="step" data-s="Ready"><span>3</span>Ready</div>
+    </div>
+    <p class="track-msg" id="t-msg"></p>
+    <button class="ghost small" id="new-order-btn">Start a new order</button>
+  </div>
+</main>
 
-      if (hour >= 12 && hour < 14) {
-        text = "High rush. Lunch time. Pre-order to save time.";
-      } else if (hour >= 10 && hour < 12) {
-        text = "Medium rush. Break time is near.";
-      } else {
-        text = "Low rush. Good time to visit.";
-      }
+<div id="toast" hidden></div>
 
-      document.getElementById("rush").textContent = text;
-    }
+<script type="module">
+import { db } from "./firebase.js";
+import {
+  collection, doc, onSnapshot, query, orderBy, where, runTransaction, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    function placeOrder() {
-      var inputs = document.querySelectorAll(".qty");
-      var total = 0;
-      var count = 0;
+const STEPS = ["Received", "Preparing", "Ready"];
+const SAVED_KEY = "breakbite_order";
 
-      for (var i = 0; i < inputs.length; i++) {
-        var quantity = Number(inputs[i].value);
-        var price = Number(inputs[i].dataset.price);
-        count = count + quantity;
-        total = total + quantity * price;
-      }
+let menu = [];
+let qty = {};
+let pending = 0;
+let trackUnsub = null;
 
-      var result = document.getElementById("result");
+const $ = function (id) { return document.getElementById(id); };
 
-      if (count === 0) {
-        result.textContent = "Please select at least one item.";
-        return;
-      }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
 
-      var token = Math.floor(Math.random() * 900) + 100;
-      var waitTime = 5 + count * 2;
+function price(f) {
+  return Math.round(f.price * (100 - (f.discount || 0)) / 100);
+}
 
-      result.textContent = "Token: " + token +
-        " | Items: " + count +
-        " | Total: " + total + " Tk" +
-        " | Estimated waiting time: " + waitTime + " minutes";
-    }
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(function () { t.hidden = true; }, 2500);
+}
 
-    showRush();
-  </script>
+function waitMinutes() {
+  return 3 + pending * 2;
+}
+
+function cartItems() {
+  return menu
+    .filter(function (f) { return qty[f.id] > 0; })
+    .map(function (f) { return { name: f.name, qty: qty[f.id], price: price(f) }; });
+}
+
+// ---------- Menu ----------
+onSnapshot(query(collection(db, "menu"), orderBy("order")),
+  function (snap) {
+    menu = snap.docs
+      .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+      .filter(function (f) { return f.available !== false; });
+    drawMenu();
+    updateCart();
+  },
+  function (err) {
+    $("menu-list").innerHTML = '<div class="empty">Could not load the menu. Check the Firebase setup.</div>';
+    console.error(err);
+  }
+);
+
+function drawMenu() {
+  if (!menu.length) {
+    $("menu-list").innerHTML = '<div class="empty">No items right now. Please check again later.</div>';
+    return;
+  }
+  $("menu-list").innerHTML = menu.map(function (f) {
+    const p = price(f);
+    const priceHtml = f.discount > 0
+      ? '<s class="muted">' + f.price + ' Tk</s> <b>' + p + ' Tk</b> <span class="badge">' + f.discount + '% off</span>'
+      : '<b>' + f.price + ' Tk</b>';
+    const q = qty[f.id] || 0;
+    return '<div class="item">' +
+      '<div><div class="name">' + esc(f.name) + '</div><div>' + priceHtml + '</div></div>' +
+      '<div class="stepper">' +
+        '<button class="ghost small" data-act="dec" data-id="' + f.id + '">-</button>' +
+        '<span>' + q + '</span>' +
+        '<button class="small" data-act="inc" data-id="' + f.id + '">+</button>' +
+      '</div></div>';
+  }).join("");
+}
+
+$("menu-list").addEventListener("click", function (e) {
+  const b = e.target.closest("button[data-act]");
+  if (!b) return;
+  const id = b.dataset.id;
+  const cur = qty[id] || 0;
+  qty[id] = b.dataset.act === "inc" ? Math.min(cur + 1, 20) : Math.max(cur - 1, 0);
+  if (qty[id] === 0) delete qty[id];
+  drawMenu();
+  updateCart();
+});
+
+function updateCart() {
+  const items = cartItems();
+  const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
+  const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
+  $("cart-text").textContent = count ? count + " item(s), " + total + " Tk" : "No items selected";
+  $("order-btn").disabled = count === 0;
+}
+
+// ---------- Rush radar ----------
+onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "Preparing"])),
+  function (snap) {
+    pending = snap.size;
+    let text;
+    if (pending >= 10) text = "High rush. Pre-order to save time.";
+    else if (pending >= 5) text = "Medium rush. Pre-order if you can.";
+    else text = "Low rush. Good time to visit.";
+    $("rush-text").textContent = text + " " + pending + " order(s) waiting.";
+    $("rush-num").textContent = pending;
+  },
+  function (err) { console.error(err); }
+);
+
+// ---------- Place order ----------
+$("order-btn").addEventListener("click", async function () {
+  const items = cartItems();
+  if (!items.length) return;
+  const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
+  const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
+
+  const btn = $("order-btn");
+  btn.disabled = true;
+  btn.textContent = "Placing...";
+  try {
+    const counterRef = doc(db, "counters", "orders");
+    const orderRef = doc(collection(db, "orders"));
+    await runTransaction(db, async function (tx) {
+      const cs = await tx.get(counterRef);
+      const next = (cs.exists() ? cs.data().last : 0) + 1;
+      tx.set(counterRef, { last: next });
+      tx.set(orderRef, {
+        token: next,
+        items: items,
+        count: count,
+        total: total,
+        status: "Received",
+        createdAt: serverTimestamp()
+      });
+    });
+    localStorage.setItem(SAVED_KEY, orderRef.id);
+    qty = {};
+    drawMenu();
+    track(orderRef.id);
+    toast("Order placed!");
+  } catch (err) {
+    toast("Could not place the order. Check your internet and try again.");
+    console.error(err);
+  }
+  btn.textContent = "Place pre-order";
+  updateCart();
+});
+
+// ---------- Token tracking ----------
+function track(id) {
+  if (trackUnsub) trackUnsub();
+  $("track-card").hidden = false;
+  trackUnsub = onSnapshot(doc(db, "orders", id),
+    function (snap) {
+      if (!snap.exists()) return;
+      const o = snap.data();
+      $("t-token").textContent = o.token;
+      $("t-items").textContent = o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
+
+      const idx = o.status === "Done" ? STEPS.length : STEPS.indexOf(o.status);
+      document.querySelectorAll(".step").forEach(function (el) {
+        const i = STEPS.indexOf(el.dataset.s);
+        el.classList.toggle("done", i < idx);
+        el.classList.toggle("now", i === idx);
+      });
+
+      let msg;
+      if (o.status === "Ready") msg = "Ready! Please collect your food.";
+      else if (o.status === "Preparing") msg = "Your food is being prepared.";
+      else if (o.status === "Done") msg = "Thank you! Order collected.";
+      else msg = "Waiting. Estimated " + waitMinutes() + " min.";
+      $("t-msg").textContent = msg;
+    },
+    function (err) { console.error(err); }
+  );
+}
+
+$("new-order-btn").addEventListener("click", function () {
+  localStorage.removeItem(SAVED_KEY);
+  if (trackUnsub) trackUnsub();
+  trackUnsub = null;
+  $("track-card").hidden = true;
+});
+
+// Resume tracking after a page refresh
+const saved = localStorage.getItem(SAVED_KEY);
+if (saved) track(saved);
+</script>
 </body>
 </html>
