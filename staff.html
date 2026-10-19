@@ -101,7 +101,7 @@
     .stat .num { font-size: 32px; font-weight: 800; color: var(--green); }
     .stat.hot .num { color: #b9741a; }
 
-    /* ---------- Order board (the memorable part) ---------- */
+    /* ---------- Order board ---------- */
     .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
     .col { background: #e7eeea; border-radius: var(--radius); padding: 12px; min-height: 160px; }
     .col h3 { font-size: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; }
@@ -118,6 +118,7 @@
     .ticket .stub small { font-size: 12px; color: var(--ink-soft); }
     .ticket .stub b { font-size: 24px; }
     .ticket.Pending .stub { background: var(--amber-soft); }
+    .ticket.Received .stub { background: var(--amber-soft); }
     .ticket.Preparing .stub { background: var(--blue-soft); }
     .ticket.Ready .stub { background: var(--mint-soft); }
     .ticket .body { padding: 10px 12px; flex: 1; min-width: 0; }
@@ -160,11 +161,11 @@
     <p>Less waiting, more break. Manage your canteen orders and menu from one place.</p>
   </div>
   <div class="login-form">
-    <form onsubmit="login(event)">
+    <form id="login-form">
       <h2>Staff login</h2>
       <p class="muted">Only canteen staff can open this page.</p>
-      <label class="field">Username
-        <input type="text" id="username" autocomplete="username" required>
+      <label class="field">Email
+        <input type="email" id="username" autocomplete="username" required>
       </label>
       <label class="field">Password
         <input type="password" id="password" autocomplete="current-password" required>
@@ -180,384 +181,409 @@
   <header class="top">
     <div class="brand">BreakBite</div>
     <nav class="tabs" aria-label="Staff sections">
-      <button class="tab active" data-tab="orders" onclick="showTab('orders')">Orders</button>
-      <button class="tab" data-tab="menu" onclick="showTab('menu')">Menu</button>
-      <button class="tab" data-tab="waste" onclick="showTab('waste')">Food Waste Saver</button>
-      <button class="tab" data-tab="settings" onclick="showTab('settings')">Settings</button>
+      <button class="tab active" data-tab="orders">Orders</button>
+      <button class="tab" data-tab="menu">Menu</button>
+      <button class="tab" data-tab="waste">Food Waste Saver</button>
+      <button class="tab" data-tab="settings">Settings</button>
     </nav>
-    <div class="right"><button class="ghost small" onclick="logout()">Log out</button></div>
+    <div class="right"><button class="ghost small" id="logout-btn">Log out</button></div>
   </header>
 
   <main>
-
-    <!-- ===== ORDERS ===== -->
+    <!-- Orders -->
     <section class="panel active" id="panel-orders">
       <h2>Orders</h2>
       <div class="stats">
-        <div class="stat"><div class="muted">Orders in queue</div><div class="num" id="queue-count">0</div></div>
-        <div class="stat" id="wait-stat"><div class="muted">Estimated waiting time</div><div class="num" id="wait-time">0 min</div></div>
-        <div class="stat"><div class="muted">Ready for pickup</div><div class="num" id="ready-count">0</div></div>
-      </div>
-
-      <div class="row" style="margin-bottom:16px">
-        <button class="ghost small" onclick="addTestOrder()">Add test order</button>
-        <button class="danger small" onclick="clearDoneOrders()">Clear completed orders</button>
+        <div class="stat" id="wait-stat">
+          <div class="muted">Orders in queue</div>
+          <div class="num" id="queue-count">0</div>
+        </div>
+        <div class="stat">
+          <div class="muted">Estimated waiting time</div>
+          <div class="num" id="wait-time">3 min</div>
+        </div>
+        <div class="stat">
+          <div class="muted">Ready to collect</div>
+          <div class="num" id="ready-count">0</div>
+        </div>
       </div>
 
       <div class="board">
-        <div class="col"><h3>Pending <span class="count" id="cnt-Pending">0</span></h3><div id="col-Pending"></div></div>
-        <div class="col"><h3>Preparing <span class="count" id="cnt-Preparing">0</span></h3><div id="col-Preparing"></div></div>
-        <div class="col"><h3>Ready <span class="count" id="cnt-Ready">0</span></h3><div id="col-Ready"></div></div>
+        <div class="col">
+          <h3>Received <span class="count" id="cnt-Received">0</span></h3>
+          <div id="col-Received"></div>
+        </div>
+        <div class="col">
+          <h3>Preparing <span class="count" id="cnt-Preparing">0</span></h3>
+          <div id="col-Preparing"></div>
+        </div>
+        <div class="col">
+          <h3>Ready <span class="count" id="cnt-Ready">0</span></h3>
+          <div id="col-Ready"></div>
+        </div>
       </div>
 
-      <div class="card" style="margin-top:20px">
-        <h3>Completed orders</h3>
+      <div class="card">
+        <h3>Completed (latest 10)</h3>
         <div id="done-list"></div>
       </div>
     </section>
 
-    <!-- ===== MENU ===== -->
+    <!-- Menu -->
     <section class="panel" id="panel-menu">
       <h2>Menu</h2>
       <div class="card">
-        <h3>Add a food item</h3>
-        <div class="row">
-          <input type="text" id="food-name" placeholder="Food name" aria-label="Food name">
-          <input type="number" id="food-price" placeholder="Price (Tk)" min="0" style="width:130px" aria-label="Price">
-          <button onclick="addFood()">Add item</button>
-        </div>
-      </div>
-      <div class="card">
-        <h3>Current menu</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Food</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr><th>Item</th><th>Price</th><th>Status</th><th>Actions</th></tr>
+            </thead>
             <tbody id="menu-body"></tbody>
           </table>
         </div>
       </div>
+      <div class="card">
+        <h3>Add a new item</h3>
+        <div class="row">
+          <input type="text" id="food-name" placeholder="Item name">
+          <input type="number" id="food-price" placeholder="Price (Tk)" min="0">
+          <button id="add-food-btn">Add item</button>
+        </div>
+      </div>
     </section>
 
-    <!-- ===== FOOD WASTE SAVER ===== -->
+    <!-- Food Waste Saver -->
     <section class="panel" id="panel-waste">
       <h2>Food Waste Saver</h2>
       <div class="card">
-        <h3>Discount leftover food</h3>
-        <p class="muted" style="margin-top:0">At the end of the day, put unsold food on discount so it does not go to waste. Students will see the lower price.</p>
+        <h3>Start a discount</h3>
         <div class="row">
-          <select id="waste-food" aria-label="Food item"></select>
-          <input type="number" id="waste-percent" value="30" min="5" max="90" style="width:90px" aria-label="Discount percent">
-          <span>% off</span>
-          <button onclick="startDiscount()">Start discount</button>
+          <select id="waste-food"></select>
+          <input type="number" id="waste-percent" placeholder="Discount %" min="5" max="90">
+          <button id="waste-start">Start discount</button>
         </div>
       </div>
       <div class="card">
-        <h3>Active discounts</h3>
+        <h3>Running discounts</h3>
         <div id="waste-list"></div>
       </div>
     </section>
 
-    <!-- ===== SETTINGS ===== -->
+    <!-- Settings -->
     <section class="panel" id="panel-settings">
       <h2>Settings</h2>
       <div class="card">
-        <h3>Waiting time</h3>
-        <label class="field" style="max-width:260px">Minutes to prepare one order
-          <input type="number" id="minutes-per-order" min="1" onchange="saveSettings()">
-        </label>
-      </div>
-      <div class="card" style="max-width:420px">
         <h3>Change password</h3>
-        <label class="field">Current password<input type="password" id="pw-old"></label>
-        <label class="field">New password (at least 4 characters)<input type="password" id="pw-new"></label>
-        <label class="field">Confirm new password<input type="password" id="pw-new2"></label>
-        <button onclick="changePassword()">Save new password</button>
+        <label class="field">New password (at least 6 characters)
+          <input type="password" id="pw-new" autocomplete="new-password">
+        </label>
+        <label class="field">Repeat new password
+          <input type="password" id="pw-new2" autocomplete="new-password">
+        </label>
+        <button id="pw-save">Save password</button>
       </div>
     </section>
-
   </main>
 </div>
 
-<div id="toast" class="hidden" role="status"></div>
+<div id="toast" class="hidden"></div>
 
-<script>
-/* =====================================================
-   DATABASE = the browser's localStorage
-   Keys used (student.html must use the same keys):
-   - breakbite_menu      : list of food items
-   - breakbite_orders    : list of orders
-   - breakbite_settings  : { minutesPerOrder }
-   - breakbite_staff_auth: { user, pass } (staff login)
+<script type="module">
+import { db, auth } from "./firebase.js";
+import {
+  collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-   Menu item : { id, name, price, available, discount }
-   Order     : { token, items:[{name, qty, price}], total, status, time }
-   Status    : Pending -> Preparing -> Ready -> Done
-   ===================================================== */
+const STATUS_FLOW = ["Received", "Preparing", "Ready", "Done"];
+const NEXT_LABEL = { Received: "Start preparing", Preparing: "Mark ready", Ready: "Mark collected" };
 
-const STATUS_FLOW = ["Pending", "Preparing", "Ready", "Done"];
-const NEXT_LABEL = { Pending: "Start preparing", Preparing: "Mark ready", Ready: "Mark done" };
+let menu = [];
+let orders = [];
+let started = false;
 
-// ---------- helpers ----------
-function load(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch (e) { return fallback; }
+const $ = function (id) { return document.getElementById(id); };
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
 }
-function save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
-function $(id) { return document.getElementById(id); }
-function escapeHtml(text) {
-  const d = document.createElement("div");
-  d.textContent = text;
-  return d.innerHTML;
-}
-let toastTimer;
-function toast(message) {
+
+function toast(msg) {
   const t = $("toast");
-  t.textContent = message;
+  t.textContent = msg;
   t.classList.remove("hidden");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.add("hidden"), 2500);
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(function () { t.classList.add("hidden"); }, 2500);
 }
 
-function getMenu() {
-  const menu = load("breakbite_menu", null);
-  if (menu) return menu;
-  const starter = [
-    { id: 1, name: "Chicken Burger", price: 120, available: true, discount: 0 },
-    { id: 2, name: "Singara",        price: 15,  available: true, discount: 0 },
-    { id: 3, name: "Tea",            price: 10,  available: true, discount: 0 },
-    { id: 4, name: "Biryani",        price: 150, available: true, discount: 0 }
-  ];
-  save("breakbite_menu", starter);
-  return starter;
+function finalPrice(f) {
+  return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
-function getOrders()   { return load("breakbite_orders", []); }
-function getSettings() { return load("breakbite_settings", { minutesPerOrder: 3 }); }
-function getAuth()     { return load("breakbite_staff_auth", { user: "staff", pass: "1234" }); }
-function finalPrice(food) { return Math.round(food.price * (100 - food.discount) / 100); }
+
+function itemsText(o) {
+  return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
+}
+
+function timeText(o) {
+  const d = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate() : new Date();
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 // ---------- login ----------
-function login(event) {
-  event.preventDefault();
-  const auth = getAuth();
-  if ($("username").value.trim() === auth.user && $("password").value === auth.pass) {
-    sessionStorage.setItem("breakbite_staff", "yes");
-    openApp();
+onAuthStateChanged(auth, function (user) {
+  if (user) {
+    $("login-screen").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    if (!started) {
+      started = true;
+      watchOrders();
+      watchMenu();
+    }
   } else {
-    $("login-error").textContent = "Wrong username or password. Please try again.";
+    $("login-screen").classList.remove("hidden");
+    $("app").classList.add("hidden");
   }
-}
-function logout() {
-  sessionStorage.removeItem("breakbite_staff");
-  location.reload();
-}
-function openApp() {
-  $("login-screen").classList.add("hidden");
-  $("app").classList.remove("hidden");
-  refreshAll();
-}
+});
+
+$("login-form").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("login-error").textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, $("username").value.trim(), $("password").value);
+    $("password").value = "";
+  } catch (err) {
+    $("login-error").textContent = "Wrong email or password. Try again.";
+    console.error(err);
+  }
+});
+
+$("logout-btn").addEventListener("click", function () { signOut(auth); });
 
 // ---------- tabs ----------
 function showTab(name) {
-  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
-  $("panel-" + name).classList.add("active");
+  document.querySelectorAll(".tab").forEach(function (b) {
+    b.classList.toggle("active", b.dataset.tab === name);
+  });
+  document.querySelectorAll(".panel").forEach(function (p) {
+    p.classList.toggle("active", p.id === "panel-" + name);
+  });
 }
+document.querySelectorAll(".tab").forEach(function (b) {
+  b.addEventListener("click", function () { showTab(b.dataset.tab); });
+});
+
+// ---------- one click handler for all dynamic buttons ----------
+document.addEventListener("click", function (e) {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const id = el.dataset.id;
+  const act = el.dataset.act;
+  if (act === "advance") advanceOrder(id);
+  if (act === "toggle") toggleAvailable(id);
+  if (act === "edit") editFood(id);
+  if (act === "delete") deleteFood(id);
+  if (act === "stopDiscount") setDiscount(id, 0);
+});
 
 // ---------- orders ----------
+function watchOrders() {
+  onSnapshot(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50)),
+    function (snap) {
+      orders = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderOrders();
+    },
+    function (err) { toast("Could not load orders."); console.error(err); }
+  );
+}
+
 function renderOrders() {
-  const orders = getOrders();
-  const perOrder = getSettings().minutesPerOrder;
-  const queue = orders.filter(o => o.status === "Pending" || o.status === "Preparing").length;
-  const ready = orders.filter(o => o.status === "Ready").length;
+  const active = orders.filter(function (o) { return o.status !== "Done"; });
+  const queue = active.filter(function (o) { return o.status === "Received" || o.status === "Preparing"; }).length;
+  const ready = active.filter(function (o) { return o.status === "Ready"; }).length;
 
   $("queue-count").textContent = queue;
-  $("wait-time").textContent = (queue * perOrder) + " min";
+  $("wait-time").textContent = (3 + queue * 2) + " min";
   $("ready-count").textContent = ready;
   $("wait-stat").classList.toggle("hot", queue >= 8);
-  $("minutes-per-order").value = perOrder;
 
-  ["Pending", "Preparing", "Ready"].forEach(status => {
-    const list = orders.filter(o => o.status === status);
-    $("cnt-" + status).textContent = list.length;
-    $("col-" + status).innerHTML = list.length
+  ["Received", "Preparing", "Ready"].forEach(function (s) {
+    const list = active.filter(function (o) { return o.status === s; });
+    $("cnt-" + s).textContent = list.length;
+    $("col-" + s).innerHTML = list.length
       ? list.map(ticketHtml).join("")
-      : `<div class="empty">No ${status.toLowerCase()} orders.</div>`;
+      : '<div class="empty">No ' + s.toLowerCase() + ' orders.</div>';
   });
 
-  const done = orders.filter(o => o.status === "Done");
+  const done = orders.filter(function (o) { return o.status === "Done"; }).slice(0, 10);
   $("done-list").innerHTML = done.length
-    ? done.map(o => `<div class="row" style="padding:4px 0"><span class="badge off">#${o.token}</span>
-        <span>${escapeHtml(itemsText(o))}</span><span class="muted">${o.total} Tk, ${o.time}</span></div>`).join("")
-    : `<div class="empty">Nothing completed yet.</div>`;
+    ? done.map(function (o) {
+        return '<div class="row" style="padding:4px 0"><span class="badge off">#' + o.token + '</span>' +
+          '<span>' + escapeHtml(itemsText(o)) + '</span>' +
+          '<span class="muted">' + o.total + ' Tk, ' + timeText(o) + '</span></div>';
+      }).join("")
+    : '<div class="empty">Nothing completed yet.</div>';
 }
-function itemsText(order) { return order.items.map(i => i.name + " x" + i.qty).join(", "); }
+
 function ticketHtml(o) {
-  return `
-    <div class="ticket ${o.status}">
-      <div class="stub"><small>Token</small><b>${o.token}</b></div>
-      <div class="body">
-        <div class="items">${escapeHtml(itemsText(o))}</div>
-        <div class="meta">${o.total} Tk, ordered at ${o.time}</div>
-        <button class="small" onclick="advanceOrder(${o.token})">${NEXT_LABEL[o.status]}</button>
-      </div>
-    </div>`;
+  const cls = o.status === "Received" ? "Pending" : o.status;
+  return '<div class="ticket ' + cls + '">' +
+    '<div class="stub"><small>Token</small><b>' + o.token + '</b></div>' +
+    '<div class="body">' +
+      '<div class="items">' + escapeHtml(itemsText(o)) + '</div>' +
+      '<div class="meta">' + o.total + ' Tk, ordered at ' + timeText(o) + '</div>' +
+      '<button class="small" data-act="advance" data-id="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>' +
+    '</div></div>';
 }
-function advanceOrder(token) {
-  const orders = getOrders();
-  const order = orders.find(o => o.token === token);
-  if (!order) return;
-  const next = STATUS_FLOW[STATUS_FLOW.indexOf(order.status) + 1];
-  if (next) order.status = next;
-  save("breakbite_orders", orders);
-  refreshAll();
-}
-function clearDoneOrders() {
-  save("breakbite_orders", getOrders().filter(o => o.status !== "Done"));
-  refreshAll();
-  toast("Completed orders cleared.");
-}
-function addTestOrder() {
-  const available = getMenu().filter(f => f.available);
-  if (!available.length) { toast("Add an available food item first."); return; }
-  const orders = getOrders();
-  const food = available[Math.floor(Math.random() * available.length)];
-  const qty = 1 + Math.floor(Math.random() * 3);
-  const price = finalPrice(food);
-  const lastToken = orders.length ? Math.max(...orders.map(o => o.token)) : 100;
-  orders.push({
-    token: lastToken + 1,
-    items: [{ name: food.name, qty: qty, price: price }],
-    total: price * qty,
-    status: "Pending",
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+
+function advanceOrder(id) {
+  const o = orders.find(function (x) { return x.id === id; });
+  if (!o) return;
+  const next = STATUS_FLOW[STATUS_FLOW.indexOf(o.status) + 1];
+  if (!next) return;
+  updateDoc(doc(db, "orders", id), { status: next }).catch(function (err) {
+    toast("Could not update the order.");
+    console.error(err);
   });
-  save("breakbite_orders", orders);
-  refreshAll();
 }
 
 // ---------- menu ----------
-function renderMenu() {
-  $("menu-body").innerHTML = getMenu().map(f => {
-    const price = f.discount > 0
-      ? `<s class="off-text">${f.price}</s> <b>${finalPrice(f)} Tk</b> <span class="badge">${f.discount}% off</span>`
-      : `${f.price} Tk`;
-    return `
-      <tr>
-        <td>${escapeHtml(f.name)}</td>
-        <td>${price}</td>
-        <td><span class="badge ${f.available ? "green" : "off"}">${f.available ? "Available" : "Sold out"}</span></td>
-        <td class="row">
-          <button class="ghost small" onclick="toggleAvailable(${f.id})">${f.available ? "Mark sold out" : "Mark available"}</button>
-          <button class="ghost small" onclick="editFood(${f.id})">Edit</button>
-          <button class="danger small" onclick="deleteFood(${f.id})">Delete</button>
-        </td>
-      </tr>`;
-  }).join("");
+function watchMenu() {
+  onSnapshot(query(collection(db, "menu"), orderBy("order")),
+    function (snap) {
+      menu = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderMenu();
+      renderWaste();
+    },
+    function (err) { toast("Could not load the menu."); console.error(err); }
+  );
 }
-function addFood() {
+
+function renderMenu() {
+  const rows = menu.map(function (f) {
+    const price = f.discount > 0
+      ? '<s class="off-text">' + f.price + '</s> <b>' + finalPrice(f) + ' Tk</b> <span class="badge">' + f.discount + '% off</span>'
+      : f.price + ' Tk';
+    return '<tr>' +
+      '<td>' + escapeHtml(f.name) + '</td>' +
+      '<td>' + price + '</td>' +
+      '<td><span class="badge ' + (f.available ? "green" : "off") + '">' + (f.available ? "Available" : "Sold out") + '</span></td>' +
+      '<td class="row">' +
+        '<button class="ghost small" data-act="toggle" data-id="' + f.id + '">' + (f.available ? "Mark sold out" : "Mark available") + '</button>' +
+        '<button class="ghost small" data-act="edit" data-id="' + f.id + '">Edit</button>' +
+        '<button class="danger small" data-act="delete" data-id="' + f.id + '">Delete</button>' +
+      '</td></tr>';
+  });
+  $("menu-body").innerHTML = rows.length
+    ? rows.join("")
+    : '<tr><td colspan="4" class="empty">No items yet. Add one below.</td></tr>';
+}
+
+async function addFood() {
   const name = $("food-name").value.trim();
   const price = parseInt($("food-price").value, 10);
-  if (!name || isNaN(price) || price < 0) { toast("Enter a food name and a valid price."); return; }
-  const menu = getMenu();
-  const id = menu.length ? Math.max(...menu.map(f => f.id)) + 1 : 1;
-  menu.push({ id: id, name: name, price: price, available: true, discount: 0 });
-  save("breakbite_menu", menu);
-  $("food-name").value = "";
-  $("food-price").value = "";
-  refreshAll();
-  toast(name + " added to the menu.");
+  if (!name || isNaN(price) || price < 0) {
+    toast("Enter a food name and a valid price.");
+    return;
+  }
+  try {
+    await addDoc(collection(db, "menu"), {
+      name: name, price: price, available: true, discount: 0, order: Date.now()
+    });
+    $("food-name").value = "";
+    $("food-price").value = "";
+    toast(name + " added to the menu.");
+  } catch (err) {
+    toast("Could not add the item.");
+    console.error(err);
+  }
 }
+
 function toggleAvailable(id) {
-  const menu = getMenu();
-  const food = menu.find(f => f.id === id);
-  if (food) food.available = !food.available;
-  save("breakbite_menu", menu);
-  refreshAll();
+  const f = menu.find(function (x) { return x.id === id; });
+  if (!f) return;
+  updateDoc(doc(db, "menu", id), { available: !f.available });
 }
+
 function editFood(id) {
-  const menu = getMenu();
-  const food = menu.find(f => f.id === id);
-  if (!food) return;
-  const name = prompt("Food name:", food.name);
+  const f = menu.find(function (x) { return x.id === id; });
+  if (!f) return;
+  const name = prompt("Food name:", f.name);
   if (name === null) return;
-  const priceText = prompt("Price (Tk):", food.price);
+  const priceText = prompt("Price (Tk):", f.price);
   if (priceText === null) return;
   const price = parseInt(priceText, 10);
-  if (!name.trim() || isNaN(price) || price < 0) { toast("Name or price is not valid."); return; }
-  food.name = name.trim();
-  food.price = price;
-  save("breakbite_menu", menu);
-  refreshAll();
+  if (!name.trim() || isNaN(price) || price < 0) {
+    toast("Name or price is not valid.");
+    return;
+  }
+  updateDoc(doc(db, "menu", id), { name: name.trim(), price: price });
   toast("Menu item updated.");
 }
+
 function deleteFood(id) {
-  if (!confirm("Delete this food item?")) return;
-  save("breakbite_menu", getMenu().filter(f => f.id !== id));
-  refreshAll();
+  const f = menu.find(function (x) { return x.id === id; });
+  if (!f) return;
+  if (!confirm("Remove " + f.name + " from the menu?")) return;
+  deleteDoc(doc(db, "menu", id));
 }
+
+$("add-food-btn").addEventListener("click", addFood);
 
 // ---------- food waste saver ----------
 function renderWaste() {
-  const menu = getMenu();
-  $("waste-food").innerHTML = menu.filter(f => f.available)
-    .map(f => `<option value="${f.id}">${escapeHtml(f.name)} (${f.price} Tk)</option>`).join("");
-  const discounted = menu.filter(f => f.discount > 0);
+  const available = menu.filter(function (f) { return f.available; });
+  $("waste-food").innerHTML = available.map(function (f) {
+    return '<option value="' + f.id + '">' + escapeHtml(f.name) + ' (' + f.price + ' Tk)</option>';
+  }).join("");
+
+  const discounted = menu.filter(function (f) { return f.discount > 0; });
   $("waste-list").innerHTML = discounted.length
-    ? discounted.map(f => `
-        <div class="row" style="padding:6px 0">
-          <span><b>${escapeHtml(f.name)}</b>: ${f.discount}% off, now ${finalPrice(f)} Tk</span>
-          <button class="ghost small" onclick="stopDiscount(${f.id})">Stop discount</button>
-        </div>`).join("")
-    : `<div class="empty">No discounts running. Pick a food above to start one.</div>`;
+    ? discounted.map(function (f) {
+        return '<div class="row" style="padding:6px 0">' +
+          '<span><b>' + escapeHtml(f.name) + '</b>: ' + f.discount + '% off, now ' + finalPrice(f) + ' Tk</span>' +
+          '<button class="ghost small" data-act="stopDiscount" data-id="' + f.id + '">Stop discount</button></div>';
+      }).join("")
+    : '<div class="empty">No discounts running. Pick a food above to start one.</div>';
 }
-function startDiscount() {
-  const id = parseInt($("waste-food").value, 10);
+
+function setDiscount(id, percent) {
+  updateDoc(doc(db, "menu", id), { discount: percent }).catch(function (err) {
+    toast("Could not save the discount.");
+    console.error(err);
+  });
+}
+
+$("waste-start").addEventListener("click", function () {
+  const id = $("waste-food").value;
   const percent = parseInt($("waste-percent").value, 10);
-  if (isNaN(id)) { toast("Choose a food item first."); return; }
-  if (isNaN(percent) || percent < 5 || percent > 90) { toast("Discount must be between 5 and 90."); return; }
-  const menu = getMenu();
-  const food = menu.find(f => f.id === id);
-  if (food) food.discount = percent;
-  save("breakbite_menu", menu);
-  refreshAll();
+  if (!id) { toast("Choose a food item first."); return; }
+  if (isNaN(percent) || percent < 5 || percent > 90) {
+    toast("Discount must be between 5 and 90.");
+    return;
+  }
+  setDiscount(id, percent);
   toast("Discount started.");
-}
-function stopDiscount(id) {
-  const menu = getMenu();
-  const food = menu.find(f => f.id === id);
-  if (food) food.discount = 0;
-  save("breakbite_menu", menu);
-  refreshAll();
-}
+});
 
 // ---------- settings ----------
-function saveSettings() {
-  const v = parseInt($("minutes-per-order").value, 10);
-  save("breakbite_settings", { minutesPerOrder: v > 0 ? v : 3 });
-  refreshAll();
-  toast("Waiting time setting saved.");
-}
-function changePassword() {
-  const auth = getAuth();
-  const oldPw = $("pw-old").value, newPw = $("pw-new").value, newPw2 = $("pw-new2").value;
-  if (oldPw !== auth.pass) { toast("Current password is wrong."); return; }
-  if (newPw.length < 4) { toast("New password needs at least 4 characters."); return; }
-  if (newPw !== newPw2) { toast("New passwords do not match."); return; }
-  save("breakbite_staff_auth", { user: auth.user, pass: newPw });
-  $("pw-old").value = $("pw-new").value = $("pw-new2").value = "";
-  toast("Password changed.");
-}
-
-// ---------- start ----------
-function refreshAll() { renderOrders(); renderMenu(); renderWaste(); }
-
-if (sessionStorage.getItem("breakbite_staff") === "yes") openApp();
-
-// Auto-update when another tab (the student page) changes the data
-window.addEventListener("storage", function () {
-  if (sessionStorage.getItem("breakbite_staff") === "yes") refreshAll();
+$("pw-save").addEventListener("click", async function () {
+  const p1 = $("pw-new").value;
+  const p2 = $("pw-new2").value;
+  if (p1.length < 6) { toast("New password needs at least 6 characters."); return; }
+  if (p1 !== p2) { toast("Passwords do not match."); return; }
+  try {
+    await updatePassword(auth.currentUser, p1);
+    $("pw-new").value = "";
+    $("pw-new2").value = "";
+    toast("Password changed.");
+  } catch (err) {
+    toast("Log out, log in again, then retry.");
+    console.error(err);
+  }
 });
 </script>
 </body>
