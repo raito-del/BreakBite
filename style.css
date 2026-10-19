@@ -1,5 +1,5 @@
 /* =========================================================
-   BreakBite shared stylesheet (final)
+   BreakBite shared stylesheet (final, mobile-fixed)
    Colours come from the approved design (mint theme).
    To change the whole site, edit only the --colour values in :root.
    ========================================================= */
@@ -42,6 +42,7 @@ body {
   color: var(--ink);
   font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -.3px; }
@@ -60,6 +61,7 @@ button {
   cursor: pointer;
   box-shadow: var(--shadow-small);
   transition: transform .15s, box-shadow .15s, background .15s;
+  white-space: nowrap;
 }
 button:hover {
   background: var(--accent);
@@ -186,14 +188,15 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; }
 .rush b { font-weight: 800; }
 .rush .num, .rush #rush-num { font-size: 38px; font-weight: 900; color: var(--accent); }
 
-/* ---------- Menu items ---------- */
+/* ---------- Menu items (student and planner lists) ---------- */
 .item {
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
   padding: 12px 0;
   border-bottom: 2px solid var(--line);
 }
 .item:last-child { border-bottom: 0; }
-.name { font-weight: 700; font-size: 16px; }
+.item > div:first-child { min-width: 0; flex: 1; }
+.name { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
 .item .meta { color: var(--ink-soft); font-size: 14px; }
 .badge {
   display: inline-block;
@@ -204,14 +207,26 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; }
   font-weight: 700;
   background: var(--t-yellow);
   color: var(--ink);
+  white-space: nowrap;
 }
 .badge.green { background: var(--t-mint); }
 .badge.off { background: var(--bg-soft); color: var(--ink-soft); }
-.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .stepper span { min-width: 24px; text-align: center; font-weight: 800; }
 .price { font-weight: 900; white-space: nowrap; }
 .off-text { color: var(--ink-soft); }
 .empty { color: var(--ink-soft); padding: 8px 0; }
+
+/* ---------- List rows (Running discounts, Done orders, etc.) ---------- */
+.list-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 2px solid var(--line);
+}
+.list-row:last-child { border-bottom: 0; }
+.list-row > span { min-width: 0; overflow-wrap: anywhere; flex: 1 1 200px; }
+.list-row button { flex-shrink: 0; }
 
 /* ---------- Cart bar (student) ---------- */
 .cart {
@@ -313,11 +328,12 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; }
 .tb .mt, .ticket .meta { font-size: 13px; color: var(--ink-soft); margin: 4px 0 8px; }
 .ticket button { margin-top: 2px; }
 
-/* ---------- Tables ---------- */
+/* ---------- Staff: menu table ---------- */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--line); }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--line); vertical-align: middle; }
 th { font-size: 14px; color: var(--ink-soft); font-weight: 700; }
+td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* ---------- Login (staff) ---------- */
 #login-screen { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
@@ -352,18 +368,58 @@ th { font-size: 14px; color: var(--ink-soft); font-weight: 700; }
   background: var(--ink); color: var(--card);
   padding: 10px 18px; border: 2px solid var(--ink);
   border-radius: 10px; z-index: 10; font-weight: 700;
+  max-width: calc(100vw - 32px); text-align: center;
 }
 
-/* ---------- Responsive ---------- */
+/* ---------- Responsive (phones) ---------- */
 @media (max-width: 700px) {
   main, main.narrow { padding: 16px; }
+  header.top { padding: 12px 16px; gap: 10px; }
+  .tabs {
+    margin-left: 0; width: 100%;
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+  .tab { flex-shrink: 0; white-space: nowrap; }
+
   .form-grid, .stats, .board, .grid { grid-template-columns: 1fr; }
   .hero h1 { font-size: 24px; }
-  .tabs { margin-left: 0; width: 100%; }
   .steps { gap: 6px; }
+
+  /* Menu rows: name and price on the left, stepper or buttons below */
+  .item { flex-wrap: wrap; }
+  .item > div:first-child { flex: 1 1 60%; }
+  .stepper { margin-left: auto; }
+
+  /* Order tickets: keep the stub, let the body wrap cleanly */
+  .stub { width: 66px; }
+  .stub b { font-size: 22px; }
+  .tb, .ticket .body { padding: 10px; }
+
+  /* Running discounts and other list rows */
+  .list-row { flex-direction: column; align-items: flex-start; }
+  .list-row button { width: auto; }
+
+  /* Menu table on phones: stack each row as a card */
+  .table-wrap { overflow-x: visible; }
+  table, thead, tbody, th, td, tr { display: block; width: 100%; }
+  thead { display: none; }
+  tr {
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 12px;
+    background: var(--card);
+    box-shadow: var(--shadow-small);
+  }
+  td { border: none; padding: 4px 0; }
+  td.actions { margin-top: 6px; }
+
   #login-screen { grid-template-columns: 1fr; }
   .login-brand { padding: 32px 24px; }
 }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
