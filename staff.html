@@ -4,153 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BreakBite Staff</title>
-  <style>
-    :root {
-      --ink: #14302b;
-      --ink-soft: #5b716b;
-      --paper: #f2f6f4;
-      --card: #ffffff;
-      --line: #d8e3de;
-      --green: #1f7a5c;
-      --green-dark: #165c45;
-      --amber: #f2a93b;
-      --amber-soft: #fdf0d5;
-      --blue-soft: #dcebf7;
-      --mint-soft: #d9f2e6;
-      --red: #b73c2d;
-      --radius: 12px;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: var(--paper);
-      color: var(--ink);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      line-height: 1.5;
-    }
-    h1, h2, h3 { margin: 0; line-height: 1.2; }
-    button, input, select { font: inherit; }
-    .hidden { display: none !important; }
-    .muted { color: var(--ink-soft); }
-
-    /* ---------- Buttons and inputs ---------- */
-    button {
-      border: 0; border-radius: 8px; padding: 9px 16px;
-      background: var(--green); color: #fff; font-weight: 600; cursor: pointer;
-    }
-    button:hover { background: var(--green-dark); }
-    button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-    button.ghost:hover { background: var(--paper); }
-    button.danger { background: transparent; color: var(--red); border: 1px solid #e8c4be; }
-    button.danger:hover { background: #fbeceA; }
-    button.small { padding: 6px 12px; font-size: 14px; }
-    button:focus-visible, input:focus-visible, select:focus-visible, .tab:focus-visible {
-      outline: 3px solid var(--amber); outline-offset: 2px;
-    }
-    input, select {
-      padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
-      background: #fff; color: var(--ink); max-width: 100%;
-    }
-    label.field { display: block; font-weight: 600; margin-bottom: 12px; }
-    label.field input { display: block; width: 100%; margin-top: 4px; font-weight: 400; }
-
-    /* ---------- Login ---------- */
-    #login-screen {
-      min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr;
-    }
-    .login-brand {
-      background: var(--green); color: #fff; padding: 48px;
-      display: flex; flex-direction: column; justify-content: center; gap: 16px;
-    }
-    .login-brand .logo { font-size: 48px; font-weight: 800; letter-spacing: -1px; }
-    .login-brand p { margin: 0; font-size: 18px; max-width: 32ch; opacity: .92; }
-    .login-form { display: flex; align-items: center; justify-content: center; padding: 32px; }
-    .login-form form { width: 100%; max-width: 340px; }
-    .login-form h2 { font-size: 26px; margin-bottom: 4px; }
-    .login-form .msg { min-height: 24px; color: var(--red); margin: 8px 0; }
-    .login-form button { width: 100%; padding: 12px; }
-
-    /* ---------- App shell ---------- */
-    header.top {
-      background: var(--card); border-bottom: 1px solid var(--line);
-      padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    }
-    .brand { font-size: 22px; font-weight: 800; color: var(--green); letter-spacing: -.5px; }
-    .tabs { display: flex; gap: 4px; margin-left: 16px; flex-wrap: wrap; }
-    .tab {
-      background: transparent; color: var(--ink-soft); padding: 8px 14px; border-radius: 8px;
-    }
-    .tab:hover { background: var(--paper); }
-    .tab.active { background: var(--mint-soft); color: var(--green-dark); }
-    header.top .right { margin-left: auto; }
-    main { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    .panel { display: none; }
-    .panel.active { display: block; }
-    .panel > h2 { font-size: 24px; margin-bottom: 16px; }
-
-    .card {
-      background: var(--card); border: 1px solid var(--line);
-      border-radius: var(--radius); padding: 20px; margin-bottom: 20px;
-    }
-    .card h3 { margin-bottom: 12px; font-size: 18px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-
-    /* ---------- Waiting time strip ---------- */
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-    .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
-    .stat .num { font-size: 32px; font-weight: 800; color: var(--green); }
-    .stat.hot .num { color: #b9741a; }
-
-    /* ---------- Order board ---------- */
-    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
-    .col { background: #e7eeea; border-radius: var(--radius); padding: 12px; min-height: 160px; }
-    .col h3 { font-size: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; }
-    .col .count { background: #fff; border-radius: 20px; padding: 0 10px; font-size: 14px; }
-    .ticket {
-      background: var(--card); border-radius: 10px; margin-bottom: 10px;
-      display: flex; overflow: hidden; border: 1px solid var(--line);
-    }
-    .ticket .stub {
-      width: 76px; flex-shrink: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; padding: 10px 4px;
-      border-right: 2px dashed var(--line);
-    }
-    .ticket .stub small { font-size: 12px; color: var(--ink-soft); }
-    .ticket .stub b { font-size: 24px; }
-    .ticket.Pending .stub { background: var(--amber-soft); }
-    .ticket.Received .stub { background: var(--amber-soft); }
-    .ticket.Preparing .stub { background: var(--blue-soft); }
-    .ticket.Ready .stub { background: var(--mint-soft); }
-    .ticket .body { padding: 10px 12px; flex: 1; min-width: 0; }
-    .ticket .items { font-size: 15px; word-break: break-word; }
-    .ticket .meta { font-size: 13px; color: var(--ink-soft); margin: 4px 0 8px; }
-    .empty { color: var(--ink-soft); font-size: 14px; padding: 8px 4px; }
-
-    /* ---------- Tables ---------- */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
-    th { font-size: 14px; color: var(--ink-soft); font-weight: 600; }
-    .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 13px; background: var(--amber-soft); }
-    .badge.green { background: var(--mint-soft); }
-    .badge.off { background: #ececec; color: var(--ink-soft); }
-    .off-text { color: var(--ink-soft); }
-
-    /* ---------- Toast ---------- */
-    #toast {
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; z-index: 10;
-    }
-
-    @media (max-width: 760px) {
-      #login-screen { grid-template-columns: 1fr; }
-      .login-brand { padding: 32px 24px; }
-      .board, .stats { grid-template-columns: 1fr; }
-      main { padding: 16px; }
-      .tabs { margin-left: 0; width: 100%; }
-    }
-    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -236,7 +90,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Item</th><th>Price</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>Item</th><th>Price</th><th>Eat time</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody id="menu-body"></tbody>
           </table>
@@ -247,6 +101,7 @@
         <div class="row">
           <input type="text" id="food-name" placeholder="Item name">
           <input type="number" id="food-price" placeholder="Price (Tk)" min="0">
+          <input type="number" id="food-minutes" placeholder="Eat time (min)" min="1">
           <button id="add-food-btn">Add item</button>
         </div>
       </div>
@@ -272,15 +127,30 @@
     <!-- Settings -->
     <section class="panel" id="panel-settings">
       <h2>Settings</h2>
+
+      <div class="card">
+        <h3>Break Planner</h3>
+        <p class="muted">These values control the Break Planner page for students.</p>
+        <div class="grid2">
+          <label class="field">Shortest break (min)
+            <input type="number" id="pl-min" min="1">
+          </label>
+          <label class="field">Longest break (min)
+            <input type="number" id="pl-max" min="1">
+          </label>
+          <label class="field">Time step (min)
+            <input type="number" id="pl-step" min="1">
+          </label>
+          <label class="field">Default eat time if missing (min)
+            <input type="number" id="pl-default" min="1">
+          </label>
+        </div>
+        <button id="planner-save">Save planner settings</button>
+      </div>
+
       <div class="card">
         <h3>Change password</h3>
-        <label class="field">New password (at least 6 characters)
-          <input type="password" id="pw-new" autocomplete="new-password">
-        </label>
-        <label class="field">Repeat new password
-          <input type="password" id="pw-new2" autocomplete="new-password">
-        </label>
-        <button id="pw-save">Save password</button>
+        <p class="muted">Password is managed through Firebase Authentication. Use the Firebase console to reset it.</p>
       </div>
     </section>
   </main>
@@ -291,14 +161,16 @@
 <script type="module">
 import { db, auth } from "./firebase.js";
 import {
-  collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit
+  collection, doc, addDoc, updateDoc, deleteDoc, setDoc, getDoc,
+  onSnapshot, query, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword
+  signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const STATUS_FLOW = ["Received", "Preparing", "Ready", "Done"];
 const NEXT_LABEL = { Received: "Start preparing", Preparing: "Mark ready", Ready: "Mark collected" };
+const DEFAULT_EAT_MIN = 5;
 
 let menu = [];
 let orders = [];
@@ -342,6 +214,7 @@ onAuthStateChanged(auth, function (user) {
       started = true;
       watchOrders();
       watchMenu();
+      loadPlannerSettings();
     }
   } else {
     $("login-screen").classList.remove("hidden");
@@ -376,7 +249,7 @@ document.querySelectorAll(".tab").forEach(function (b) {
   b.addEventListener("click", function () { showTab(b.dataset.tab); });
 });
 
-// ---------- one click handler for all dynamic buttons ----------
+// ---------- one click handler for dynamic buttons ----------
 document.addEventListener("click", function (e) {
   const el = e.target.closest("[data-act]");
   if (!el) return;
@@ -429,8 +302,7 @@ function renderOrders() {
 }
 
 function ticketHtml(o) {
-  const cls = o.status === "Received" ? "Pending" : o.status;
-  return '<div class="ticket ' + cls + '">' +
+  return '<div class="ticket ' + o.status + '">' +
     '<div class="stub"><small>Token</small><b>' + o.token + '</b></div>' +
     '<div class="body">' +
       '<div class="items">' + escapeHtml(itemsText(o)) + '</div>' +
@@ -467,9 +339,11 @@ function renderMenu() {
     const price = f.discount > 0
       ? '<s class="off-text">' + f.price + '</s> <b>' + finalPrice(f) + ' Tk</b> <span class="badge">' + f.discount + '% off</span>'
       : f.price + ' Tk';
+    const eat = (f.minutes || DEFAULT_EAT_MIN) + ' min';
     return '<tr>' +
       '<td>' + escapeHtml(f.name) + '</td>' +
       '<td>' + price + '</td>' +
+      '<td>' + eat + '</td>' +
       '<td><span class="badge ' + (f.available ? "green" : "off") + '">' + (f.available ? "Available" : "Sold out") + '</span></td>' +
       '<td class="row">' +
         '<button class="ghost small" data-act="toggle" data-id="' + f.id + '">' + (f.available ? "Mark sold out" : "Mark available") + '</button>' +
@@ -479,22 +353,29 @@ function renderMenu() {
   });
   $("menu-body").innerHTML = rows.length
     ? rows.join("")
-    : '<tr><td colspan="4" class="empty">No items yet. Add one below.</td></tr>';
+    : '<tr><td colspan="5" class="empty">No items yet. Add one below.</td></tr>';
 }
 
 async function addFood() {
   const name = $("food-name").value.trim();
   const price = parseInt($("food-price").value, 10);
+  const minutes = parseInt($("food-minutes").value, 10);
   if (!name || isNaN(price) || price < 0) {
     toast("Enter a food name and a valid price.");
     return;
   }
   try {
     await addDoc(collection(db, "menu"), {
-      name: name, price: price, available: true, discount: 0, order: Date.now()
+      name: name,
+      price: price,
+      minutes: isNaN(minutes) || minutes < 1 ? DEFAULT_EAT_MIN : minutes,
+      available: true,
+      discount: 0,
+      order: Date.now()
     });
     $("food-name").value = "";
     $("food-price").value = "";
+    $("food-minutes").value = "";
     toast(name + " added to the menu.");
   } catch (err) {
     toast("Could not add the item.");
@@ -515,12 +396,15 @@ function editFood(id) {
   if (name === null) return;
   const priceText = prompt("Price (Tk):", f.price);
   if (priceText === null) return;
+  const minText = prompt("Eat time (minutes):", f.minutes || DEFAULT_EAT_MIN);
+  if (minText === null) return;
   const price = parseInt(priceText, 10);
-  if (!name.trim() || isNaN(price) || price < 0) {
-    toast("Name or price is not valid.");
+  const minutes = parseInt(minText, 10);
+  if (!name.trim() || isNaN(price) || price < 0 || isNaN(minutes) || minutes < 1) {
+    toast("Name, price or eat time is not valid.");
     return;
   }
-  updateDoc(doc(db, "menu", id), { name: name.trim(), price: price });
+  updateDoc(doc(db, "menu", id), { name: name.trim(), price: price, minutes: minutes });
   toast("Menu item updated.");
 }
 
@@ -569,19 +453,42 @@ $("waste-start").addEventListener("click", function () {
   toast("Discount started.");
 });
 
-// ---------- settings ----------
-$("pw-save").addEventListener("click", async function () {
-  const p1 = $("pw-new").value;
-  const p2 = $("pw-new2").value;
-  if (p1.length < 6) { toast("New password needs at least 6 characters."); return; }
-  if (p1 !== p2) { toast("Passwords do not match."); return; }
+// ---------- planner settings ----------
+const PLANNER_DEFAULTS = { minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5 };
+
+async function loadPlannerSettings() {
   try {
-    await updatePassword(auth.currentUser, p1);
-    $("pw-new").value = "";
-    $("pw-new2").value = "";
-    toast("Password changed.");
+    const snap = await getDoc(doc(db, "settings", "planner"));
+    const s = Object.assign({}, PLANNER_DEFAULTS, snap.exists() ? snap.data() : {});
+    $("pl-min").value = s.minBreak;
+    $("pl-max").value = s.maxBreak;
+    $("pl-step").value = s.step;
+    $("pl-default").value = s.defaultEat;
   } catch (err) {
-    toast("Log out, log in again, then retry.");
+    console.error(err);
+  }
+}
+
+$("planner-save").addEventListener("click", async function () {
+  const minBreak = parseInt($("pl-min").value, 10);
+  const maxBreak = parseInt($("pl-max").value, 10);
+  const step = parseInt($("pl-step").value, 10);
+  const defaultEat = parseInt($("pl-default").value, 10);
+  if (isNaN(minBreak) || isNaN(maxBreak) || minBreak < 1 || maxBreak <= minBreak) {
+    toast("Longest break must be bigger than shortest break.");
+    return;
+  }
+  if (isNaN(step) || step < 1 || isNaN(defaultEat) || defaultEat < 1) {
+    toast("Step and default eat time must be at least 1.");
+    return;
+  }
+  try {
+    await setDoc(doc(db, "settings", "planner"), {
+      minBreak: minBreak, maxBreak: maxBreak, step: step, defaultEat: defaultEat
+    });
+    toast("Planner settings saved.");
+  } catch (err) {
+    toast("Could not save planner settings.");
     console.error(err);
   }
 });
