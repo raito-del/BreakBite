@@ -1,0 +1,433 @@
+/* =========================================================
+   BreakBite shared stylesheet (final, mobile-fixed)
+   Colours come from the approved design (mint theme).
+   To change the whole site, edit only the --colour values in :root.
+   ========================================================= */
+
+:root {
+  /* ---- Main colours (from the approved design) ---- */
+  --bg: #d9f6e4;          /* page background (mint) */
+  --ink: #0d3326;         /* text and borders (dark green) */
+  --accent: #1f9d6b;      /* hover, highlight, progress */
+  --card: #ffffff;        /* cards and header */
+  --danger: #c0392b;      /* clear / remove buttons */
+
+  /* ---- Ticket and status colours ---- */
+  --t-yellow: #ffe7a0;    /* Received / Pending */
+  --t-blue: #d4e6f7;      /* Preparing */
+  --t-mint: #c5ecd5;      /* Ready */
+
+  /* ---- Soft tints (worked out from the colours above) ---- */
+  --bg-soft: #eefbf4;
+  --ink-soft: #3e6b59;
+  --line: #bfe6d0;
+  --column: rgba(255, 255, 255, .55);
+
+  /* ---- Shape and shadow ---- */
+  --radius: 14px;
+  --shadow: 4px 4px 0 var(--ink);
+  --shadow-small: 2px 2px 0 var(--ink);
+
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image: radial-gradient(rgba(13, 51, 38, .07) 1.5px, transparent 1.5px);
+  background-size: 22px 22px;
+  color: var(--ink);
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -.3px; }
+.muted { color: var(--ink-soft); }
+.hidden { display: none !important; }
+
+/* ---------- Buttons ---------- */
+button {
+  font: inherit;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 9px 16px;
+  background: var(--ink);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-small);
+  transition: transform .15s, box-shadow .15s, background .15s;
+  white-space: nowrap;
+}
+button:hover {
+  background: var(--accent);
+  color: #ffffff;
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+button:active { transform: translate(2px, 2px); box-shadow: none; }
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-small);
+  background: var(--ink);
+}
+button.ghost { background: var(--card); color: var(--ink); }
+button.ghost:hover { background: var(--bg-soft); color: var(--ink); }
+button.small { padding: 5px 11px; font-size: 14px; }
+button.danger { background: var(--card); color: var(--danger); border-color: var(--danger); }
+button.danger:hover { background: var(--danger); color: #ffffff; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Inputs ---------- */
+input, select {
+  font: inherit;
+  padding: 9px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  max-width: 100%;
+}
+label { display: block; font-weight: 700; font-size: 14px; }
+label.field { margin-bottom: 12px; }
+label input, label.field input { display: block; width: 100%; margin-top: 4px; }
+
+/* ---------- Header and tabs ---------- */
+header.top {
+  background: var(--card);
+  border-bottom: 3px solid var(--ink);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.brand { font-size: 24px; font-weight: 900; letter-spacing: -1px; color: var(--ink); }
+.logo {
+  display: inline-grid; place-items: center;
+  width: 32px; height: 32px; margin-right: 8px; vertical-align: -7px;
+  border-radius: 9px;
+  background: var(--ink); color: var(--card);
+  font-size: 19px; font-weight: 900; letter-spacing: 0;
+  box-shadow: var(--shadow-small);
+}
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-left: 16px; }
+.tab {
+  background: transparent;
+  color: var(--ink);
+  border: 2px solid transparent;
+  box-shadow: none;
+  text-decoration: none;
+  padding: 8px 14px;
+}
+.tab:hover { background: var(--bg-soft); color: var(--ink); transform: none; box-shadow: none; }
+.tab.active {
+  background: var(--bg);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-small);
+}
+header.top .right { margin-left: auto; }
+
+/* ---------- Layout ---------- */
+main { max-width: 760px; margin: 0 auto; padding: 24px; }
+main.wide { max-width: 1100px; }
+main.narrow { max-width: 760px; margin: 0 auto; padding: 24px; }
+.panel { display: none; }
+.panel.active { display: block; animation: fade .35s ease both; }
+.view { display: none; }
+.view.active { display: block; animation: fade .35s ease both; }
+@keyframes fade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card h2, .card h3 { font-size: 18px; margin-bottom: 12px; }
+a.card { color: var(--ink); display: block; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+a.card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+a.card h2 { color: var(--ink); margin-bottom: 6px; }
+a.card p { margin: 0; color: var(--ink-soft); }
+a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.soon {
+  margin-top: 16px;
+  background: var(--card);
+  border: 2px dashed var(--ink);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  color: var(--ink-soft);
+}
+
+/* ---------- Hero (top banner) ---------- */
+.hero { margin-bottom: 20px; }
+.hero h1 { font-size: 30px; margin-bottom: 6px; }
+.hero p { margin: 0; color: var(--ink-soft); }
+
+/* ---------- Rush radar ---------- */
+.rush { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.rush b { font-weight: 800; }
+.rush .num, .rush #rush-num { font-size: 38px; font-weight: 900; color: var(--accent); }
+
+/* ---------- Menu items (student and planner lists) ---------- */
+.item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 2px solid var(--line);
+}
+.item:last-child { border-bottom: 0; }
+.item > div:first-child { min-width: 0; flex: 1; }
+.name { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+.item .meta { color: var(--ink-soft); font-size: 14px; }
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--t-yellow);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.badge.green { background: var(--t-mint); }
+.badge.off { background: var(--bg-soft); color: var(--ink-soft); }
+.stepper { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.stepper span { min-width: 24px; text-align: center; font-weight: 800; }
+.price { font-weight: 900; white-space: nowrap; }
+.off-text { color: var(--ink-soft); }
+.empty { color: var(--ink-soft); padding: 8px 0; }
+
+/* ---------- List rows (Running discounts, Done orders) ---------- */
+.list-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 2px solid var(--line);
+}
+.list-row:last-child { border-bottom: 0; }
+.list-row > span { min-width: 0; overflow-wrap: anywhere; flex: 1 1 200px; }
+.list-row button { flex-shrink: 0; }
+
+/* ---------- Form row (inputs and button in one row) ---------- */
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.form-row input, .form-row select { flex: 1 1 160px; min-width: 0; }
+.form-row button { flex-shrink: 0; }
+
+/* ---------- Cart bar (student) ---------- */
+.cart {
+  position: sticky; bottom: 12px;
+  background: var(--ink); color: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  box-shadow: var(--shadow);
+}
+.cart button { background: var(--card); color: var(--ink); border-color: var(--card); }
+.cart button:hover { background: var(--accent); color: #ffffff; }
+
+/* ---------- Token tracking (student) ---------- */
+.ticket-big { text-align: center; padding: 8px 0; }
+.ticket-big small { color: var(--ink-soft); font-size: 14px; }
+.ticket-big .tok { font-size: 56px; font-weight: 900; line-height: 1.1; color: var(--ink); }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+.step {
+  text-align: center; padding: 12px 6px; border-radius: 10px;
+  border: 2px solid var(--ink);
+  background: var(--card); color: var(--ink-soft);
+  font-weight: 700; font-size: 14px;
+}
+.step span { display: block; font-size: 20px; font-weight: 900; }
+.step.done { background: var(--t-mint); color: var(--ink); }
+.step.now { background: var(--accent); color: #ffffff; box-shadow: var(--shadow-small); }
+.track-msg { text-align: center; font-weight: 700; margin-bottom: 12px; }
+
+/* ---------- Forms and planner ---------- */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.summary {
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: var(--t-mint);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.summary b { font-size: 18px; }
+.error { color: var(--danger); margin: 8px 0 0; min-height: 22px; font-weight: 700; }
+
+/* ---------- Staff: stats ---------- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+.stat {
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+.stat .muted { font-size: 15px; }
+.stat .num { font-size: 34px; font-weight: 900; color: var(--ink); }
+.stat.hot .num { color: var(--accent); }
+.staff-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* ---------- Staff: order board ---------- */
+.board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; margin-bottom: 20px; }
+.col {
+  background: var(--column);
+  border: 2px dashed var(--ink);
+  border-radius: var(--radius);
+  padding: 12px;
+  min-height: 150px;
+}
+.col h3 { font-size: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.count {
+  background: var(--ink); color: var(--card);
+  border-radius: 20px; padding: 0 10px; font-size: 14px; font-weight: 700;
+}
+
+.ticket {
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: var(--shadow-small);
+}
+.stub {
+  width: 78px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 10px 4px;
+  border-right: 2px dashed var(--ink);
+}
+.stub small { font-size: 12px; color: var(--ink-soft); }
+.stub b { font-size: 26px; font-weight: 900; }
+
+/* Status colours: Received/Pending = yellow, Preparing = blue, Ready = mint */
+.ticket.Received .stub, .ticket.Pending .stub, .ticket.t-r .stub { background: var(--t-yellow); }
+.ticket.Preparing .stub, .ticket.t-p .stub { background: var(--t-blue); }
+.ticket.Ready .stub, .ticket.t-d .stub { background: var(--t-mint); }
+
+.tb, .ticket .body { padding: 10px 12px; flex: 1; min-width: 0; }
+.tb .it, .ticket .items { font-weight: 700; word-break: break-word; }
+.tb .mt, .ticket .meta { font-size: 13px; color: var(--ink-soft); margin: 4px 0 8px; }
+.ticket button { margin-top: 2px; }
+
+/* ---------- Staff: menu table ---------- */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--line); vertical-align: middle; }
+th { font-size: 14px; color: var(--ink-soft); font-weight: 700; }
+td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---------- Login (staff) ---------- */
+#login-screen { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+.login-brand {
+  background: var(--ink);
+  color: var(--card);
+  padding: 48px;
+  display: flex; flex-direction: column; justify-content: center; gap: 16px;
+  border-right: 3px solid var(--ink);
+}
+.login-brand .logo {
+  display: inline-block;
+  width: auto; height: auto;
+  padding: 10px 20px;
+  font-size: 48px; font-weight: 900; line-height: 1.1; letter-spacing: -1px;
+  background: var(--accent);
+  color: var(--card);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--card);
+  margin: 0;
+}
+.login-brand p { margin: 0; font-size: 18px; max-width: 32ch; color: var(--card); }
+.login-form { display: flex; align-items: center; justify-content: center; padding: 32px; }
+.login-form form { width: 100%; max-width: 340px; }
+.login-form h2 { font-size: 26px; margin-bottom: 4px; }
+.login-form .msg { min-height: 24px; color: var(--danger); margin: 8px 0; font-weight: 700; }
+.login-form button { width: 100%; padding: 12px; }
+
+/* ---------- Toast ---------- */
+#toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--card);
+  padding: 10px 18px; border: 2px solid var(--ink);
+  border-radius: 10px; z-index: 10; font-weight: 700;
+  max-width: calc(100vw - 32px); text-align: center;
+}
+
+/* ---------- Responsive (phones) ---------- */
+@media (max-width: 700px) {
+  main, main.narrow { padding: 16px; }
+  header.top { padding: 12px 16px; gap: 10px; }
+  .tabs {
+    margin-left: 0; width: 100%;
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+  .tab { flex-shrink: 0; white-space: nowrap; }
+
+  .form-grid, .stats, .board, .grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 24px; }
+  .steps { gap: 6px; }
+
+  /* Menu rows: name and price on the left, stepper below or beside */
+  .item { flex-wrap: wrap; }
+  .item > div:first-child { flex: 1 1 60%; }
+  .stepper { margin-left: auto; }
+
+  /* Order tickets: keep the stub, let the body wrap cleanly */
+  .stub { width: 66px; }
+  .stub b { font-size: 22px; }
+  .tb, .ticket .body { padding: 10px; }
+
+  /* Running discounts and other list rows */
+  .list-row { flex-direction: column; align-items: flex-start; }
+  .list-row button { width: auto; }
+
+  /* Form row: stack inputs and button on phones */
+  .form-row input, .form-row select, .form-row button { flex: 1 1 100%; width: 100%; }
+
+  /* Menu table on phones: each row becomes a card */
+  .table-wrap { overflow-x: visible; }
+  table, thead, tbody, th, td, tr { display: block; width: 100%; }
+  thead { display: none; }
+  tr {
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 12px;
+    background: var(--card);
+    box-shadow: var(--shadow-small);
+  }
+  td { border: none; padding: 4px 0; }
+  td.actions { margin-top: 6px; }
+
+  #login-screen { grid-template-columns: 1fr; }
+  .login-brand { padding: 32px 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
