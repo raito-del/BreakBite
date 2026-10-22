@@ -7,45 +7,18 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="logo.css">
   <style>
-    .role-switch { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-    .role-btn {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--card); color: var(--ink);
-      border: 2px solid var(--ink); border-radius: 12px;
-      padding: 12px 18px; box-shadow: var(--shadow-small);
-      font-weight: 800; font-size: 16px; cursor: pointer; text-decoration: none;
+    .splash-main {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
     }
-    .role-btn .ico {
-      display: inline-grid; place-items: center;
-      width: 34px; height: 34px; border-radius: 9px;
-      background: var(--ink); color: var(--card); font-size: 18px;
-    }
-    .role-btn.on { background: var(--t-mint); }
-    .role-btn:hover { background: var(--accent); color: #fff; }
-    .role-btn:hover .ico { background: #fff; color: var(--ink); }
   </style>
 </head>
 <body>
 
-<header class="top">
-  <div class="brand">BreakBite</div>
-  <nav class="tabs" aria-label="Main sections">
-    <a class="tab" href="student.html">Order</a>
-    <a class="tab" href="planner.html">Break Planner</a>
-    <a class="tab active" href="index.html">Home</a>
-  </nav>
-</header>
-
-<main class="wide">
-  <div class="role-switch">
-    <a class="role-btn on" href="index.html">
-      <span class="ico">S</span> Student
-    </a>
-    <a class="role-btn" href="staff.html">
-      <span class="ico">T</span> Staff
-    </a>
-  </div>
-
+<main class="splash-main">
   <div class="bb-logo-wrap">
     <div class="bb-logo">
       <svg class="bb-cookie" id="bbCookie" viewBox="0 0 220 220" aria-hidden="true">
@@ -73,31 +46,17 @@
       </svg>
       <div class="bb-word">
         <span class="bb-break">Break</span>
-        <button class="bb-bite" id="bbBite" type="button" aria-label="Bite: open the ordering page">Bite</button>
+        <button class="bb-bite" id="bbBite" type="button" aria-label="Bite: enter the site">Bite</button>
       </div>
     </div>
     <div class="bb-hint" id="bbHint">Click <b>Bite</b> to order food <span class="bb-arrow">&uarr;</span></div>
   </div>
-
-  <section class="hero">
-    <h1>Less waiting, more break.</h1>
-    <p>Pre-order your canteen food, skip the queue, and plan your break with the time you have.</p>
-  </section>
-
-  <div class="grid">
-    <a class="card" href="student.html">
-      <h2>Order food</h2>
-      <p>See today's menu, pick your items, and track your token until it is ready.</p>
-      <span class="go">Open ordering &rarr;</span>
-    </a>
-    <a class="card" href="planner.html">
-      <h2>Break Planner</h2>
-      <p>Enter your break time and money. We suggest what you can eat in that time.</p>
-      <span class="go">Plan my break &rarr;</span>
-    </a>
-  </div>
 </main>
 
-<script src="logo.js"></script>
+<script>
+  document.getElementById('bbBite').addEventListener('click', function () {
+    window.location.href = 'home.html';
+  });
+</script>
 </body>
 </html>
