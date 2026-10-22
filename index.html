@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BreakBite</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="logo.css">
   <style>
     .role-switch { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
     .role-btn {
@@ -45,6 +46,39 @@
     </a>
   </div>
 
+  <div class="bb-logo-wrap">
+    <div class="bb-logo">
+      <svg class="bb-cookie" id="bbCookie" viewBox="0 0 220 220" aria-hidden="true">
+        <defs>
+          <mask id="bbBiteMask">
+            <rect width="220" height="220" fill="#fff"/>
+            <circle class="bb-bite-cut" cx="176" cy="60" r="34" fill="#000"/>
+          </mask>
+        </defs>
+        <circle cx="116" cy="118" r="88" fill="#3b2314"/>
+        <g mask="url(#bbBiteMask)">
+          <circle cx="106" cy="108" r="88" fill="#f2b33d" stroke="#3b2314" stroke-width="7"/>
+          <circle cx="70" cy="90" r="8" fill="#3b2314"/>
+          <circle cx="112" cy="70" r="8" fill="#3b2314"/>
+          <circle cx="96" cy="140" r="8" fill="#3b2314"/>
+          <circle cx="140" cy="122" r="8" fill="#3b2314"/>
+          <circle cx="66" cy="150" r="8" fill="#3b2314"/>
+        </g>
+        <circle class="bb-bite-cut" cx="176" cy="60" r="34" fill="none" stroke="#3b2314" stroke-width="7"/>
+        <g class="bb-crumbs">
+          <rect x="150" y="18" width="24" height="24" rx="6" fill="#d9482b" stroke="#3b2314" stroke-width="5"/>
+          <rect x="182" y="18" width="24" height="24" rx="6" fill="#cfeab0" stroke="#3b2314" stroke-width="5"/>
+          <rect x="182" y="50" width="24" height="24" rx="6" fill="#f2b33d" stroke="#3b2314" stroke-width="5"/>
+        </g>
+      </svg>
+      <div class="bb-word">
+        <span class="bb-break">Break</span>
+        <button class="bb-bite" id="bbBite" type="button" aria-label="Bite: open the ordering page">Bite</button>
+      </div>
+    </div>
+    <div class="bb-hint" id="bbHint">Click <b>Bite</b> to order food <span class="bb-arrow">&uarr;</span></div>
+  </div>
+
   <section class="hero">
     <h1>Less waiting, more break.</h1>
     <p>Pre-order your canteen food, skip the queue, and plan your break with the time you have.</p>
@@ -64,5 +98,6 @@
   </div>
 </main>
 
+<script src="logo.js"></script>
 </body>
 </html>
