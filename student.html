@@ -63,6 +63,16 @@
     </div>
     <div id="lookup-result"></div>
   </div>
+
+  <div class="card">
+    <h2>Check by student ID</h2>
+    <p class="muted">Enter your student ID to see all your orders from today.</p>
+    <div class="form-row">
+      <input type="text" id="sid-lookup" placeholder="Student ID" maxlength="12">
+      <button id="sid-lookup-btn">Show my orders</button>
+    </div>
+    <div id="sid-result"></div>
+  </div>
 </main>
 
 <div id="toast" hidden></div>
@@ -397,8 +407,45 @@ $("lookup-btn").addEventListener("click", async function () {
   }
 });
 
+// ---------- Check all orders by student ID (today) ----------
+$("sid-lookup-btn").addEventListener("click", async function () {
+  const sid = $("sid-lookup").value.trim();
+  if (!sid) {
+    toast("Please enter your student ID.");
+    return;
+  }
+  try {
+    const snap = await getDocs(query(collection(db, "orders"), where("studentId", "==", sid)));
+    if (snap.empty) {
+      $("sid-result").innerHTML = '<p class="muted">No orders found for this student ID today.</p>';
+      return;
+    }
+    // Newest first, sorted in the browser so no extra Firestore index is needed
+    const found = snap.docs
+      .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+      .sort(function (a, b) { return (b.token || 0) - (a.token || 0); });
+
+    $("sid-result").innerHTML = found.map(function (o) {
+      const body = o.status === "Cancelled"
+        ? '<p class="track-msg">This order was cancelled.</p>'
+        : stepsHtml(o.status) + '<p class="track-msg">' + statusMessage(o.status) + '</p>';
+      return '<div class="card">' +
+        '<div class="ticket-big">' +
+          '<small>Token</small>' +
+          '<div class="tok">' + o.token + '</div>' +
+          '<div class="muted">' + esc(itemsText(o)) + '</div>' +
+        '</div>' +
+        body +
+      '</div>';
+    }).join("");
+  } catch (err) {
+    toast("Could not load your orders. Try again.");
+    console.error(err);
+  }
+});
+
 // ---------- Start: reconnect every order saved in this browser ----------
 loadIds().forEach(watch);
 </script>
 </body>
-</html>
+</html>\
