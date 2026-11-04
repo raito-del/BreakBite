@@ -449,6 +449,54 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* ---------- Cancel timer (student) ---------- */
+.cancel-box {
+  border: 2px dashed var(--ink);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 16px;
+  text-align: center;
+  background: var(--bg-soft);
+}
+.cancel-timer {
+  font-size: 32px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.cancel-bar {
+  height: 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  overflow: hidden;
+  margin: 8px 0;
+}
+.cancel-bar > i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--leaf);
+  transition: width 1s linear;
+}
+.cancel-note { font-size: 13px; color: var(--ink-soft); margin: 6px 0 0; }
+.cancel-btn { background: var(--card); color: var(--danger); border-color: var(--danger); }
+.cancel-btn:hover { background: var(--danger); color: #ffffff; }
+
+/* ---------- Cancelled ticket and tag (staff) ---------- */
+.ticket.Cancelled { opacity: .55; }
+.ticket.Cancelled .stub { background: #eee; }
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--turmeric);
+}
+.tag.red { background: #f7d4cc; color: var(--danger); border-color: var(--danger); }
+
 /* ---------- Responsive (phones) ---------- */
 @media (max-width: 700px) {
   main, main.narrow { padding: 16px; }

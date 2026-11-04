@@ -290,7 +290,10 @@ function watchOrders() {
 }
 
 function renderOrders() {
-  const active = orders.filter(function (o) { return o.status !== "Done"; });
+  // Cancelled orders are not active: they leave the board, queue and waiting time
+  const active = orders.filter(function (o) {
+    return o.status !== "Done" && o.status !== "Cancelled";
+  });
   const queue = active.filter(function (o) { return o.status === "Received" || o.status === "Preparing"; }).length;
   const ready = active.filter(function (o) { return o.status === "Ready"; }).length;
 
@@ -307,11 +310,16 @@ function renderOrders() {
       : '<div class="empty">No ' + s.toLowerCase() + ' orders.</div>';
   });
 
-  const done = orders.filter(function (o) { return o.status === "Done"; }).slice(0, 10);
+  // Completed list shows Done and Cancelled orders (cancelled ones get a grey tag)
+  const done = orders
+    .filter(function (o) { return o.status === "Done" || o.status === "Cancelled"; })
+    .slice(0, 10);
   $("done-list").innerHTML = done.length
     ? done.map(function (o) {
+        const tag = o.status === "Cancelled" ? ' <span class="tag red">Cancelled</span>' : "";
         return '<div class="list-row">' +
-          '<span><span class="badge off">#' + o.token + '</span> ' + escapeHtml(itemsText(o)) + '</span>' +
+          '<span><span class="badge off">#' + o.token + '</span>' + tag + ' ' +
+            escapeHtml(itemsText(o)) + '</span>' +
           '<span class="muted">' + o.total + ' Tk, ' + timeText(o) + '</span>' +
         '</div>';
       }).join("")
@@ -322,6 +330,7 @@ function ticketHtml(o) {
   return '<div class="ticket ' + o.status + '">' +
     '<div class="stub"><small>Token</small><b>' + o.token + '</b></div>' +
     '<div class="body">' +
+      '<div><span class="badge">ID ' + escapeHtml(o.studentId || "-") + '</span></div>' +
       '<div class="items">' + escapeHtml(itemsText(o)) + '</div>' +
       '<div class="meta">' + o.total + ' Tk, ordered at ' + timeText(o) + '</div>' +
       '<button class="small" data-act="advance" data-id="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>' +
@@ -357,7 +366,10 @@ async function endOfDay() {
     return;
   }
 
-  const activeCount = all.docs.filter(function (d) { return d.data().status !== "Done"; }).length;
+  const activeCount = all.docs.filter(function (d) {
+    const s = d.data().status;
+    return s !== "Done" && s !== "Cancelled";
+  }).length;
   let msg = "Save today's report and remove all " + all.size + " orders? Token numbers will restart from 1.";
   if (activeCount > 0) {
     msg += "\n\n" + activeCount + " order(s) are still active and will also be removed.";
@@ -365,11 +377,15 @@ async function endOfDay() {
   if (!confirm(msg)) return;
   if (!confirm("This cannot be undone. Are you sure?")) return;
 
-  // Build the summary before anything is deleted
+  // Build the summary before anything is deleted.
+  // Cancelled orders are not counted in sales, items or the order total.
   let totalSales = 0;
+  let countedOrders = 0;
   const itemCount = {};
   all.docs.forEach(function (d) {
     const o = d.data();
+    if (o.status === "Cancelled") return;
+    countedOrders++;
     totalSales += Number(o.total) || 0;
     (o.items || []).forEach(function (i) {
       itemCount[i.name] = (itemCount[i.name] || 0) + (Number(i.qty) || 0);
@@ -384,7 +400,7 @@ async function endOfDay() {
     // 1. Save the report first. If this fails, nothing is deleted.
     await addDoc(collection(db, "daily_reports"), {
       date: todayKey(),
-      totalOrders: all.size,
+      totalOrders: countedOrders,
       totalSales: totalSales,
       items: itemCount,
       activeAtClose: activeCount,

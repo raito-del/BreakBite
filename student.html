@@ -32,6 +32,14 @@
   </div>
 
   <div class="card">
+    <h2>Your student ID</h2>
+    <p class="muted">Staff uses this to find your order. It is not shown publicly.</p>
+    <div class="form-row">
+      <input type="text" id="student-id" placeholder="e.g. 26251037" maxlength="12">
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Today's menu</h2>
     <div id="menu-list"><div class="empty">Loading menu...</div></div>
   </div>
@@ -62,12 +70,14 @@
 <script type="module">
 import { db } from "./firebase.js";
 import {
-  collection, doc, onSnapshot, query, orderBy, where, getDocs, runTransaction, serverTimestamp
+  collection, doc, onSnapshot, query, orderBy, where, getDocs, runTransaction,
+  serverTimestamp, Timestamp, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const STEPS = ["Received", "Preparing", "Ready"];
 const KEY = "breakbite_orders";      // list of order IDs this browser placed
 const OLD_KEY = "breakbite_order";   // single ID used by the earlier version
+const CANCEL_MINUTES = 15;
 
 let menu = [];
 let qty = {};
@@ -146,12 +156,44 @@ function statusMessage(status) {
   if (status === "Ready") return "Ready! Please collect your food.";
   if (status === "Preparing") return "Your food is being prepared.";
   if (status === "Done") return "Thank you! Order collected.";
+  if (status === "Cancelled") return "This order was cancelled.";
   return "Waiting. Estimated " + waitMinutes() + " min.";
 }
 
 function itemsText(o) {
   return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
 }
+
+// ---------- cancel timer ----------
+function cancelBoxHtml(o) {
+  if (o.status !== "Received" || !o.cancelUntil) return "";
+  return '<div class="cancel-box">' +
+    '<div class="muted">You can cancel this order for</div>' +
+    '<div class="cancel-timer" data-cancel-until="' + o.cancelUntil.toMillis() + '">--:--</div>' +
+    '<div class="cancel-bar"><i></i></div>' +
+    '<button class="cancel-btn small" data-cancel-id="' + o.id + '">Cancel order</button>' +
+    '<p class="cancel-note">Free cancel until the timer ends or staff starts preparing.</p>' +
+    '</div>';
+}
+
+function tickCancelTimers() {
+  const now = Date.now();
+  document.querySelectorAll("[data-cancel-until]").forEach(function (el) {
+    const end = Number(el.dataset.cancelUntil);
+    const left = Math.max(0, Math.floor((end - now) / 1000));
+    const m = Math.floor(left / 60), s = left % 60;
+    el.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    const box = el.parentElement;
+    const bar = box.querySelector(".cancel-bar > i");
+    if (bar) bar.style.width = Math.min(100, left / (CANCEL_MINUTES * 60) * 100) + "%";
+    if (left <= 0) {
+      const btn = box.querySelector("button");
+      if (btn) btn.disabled = true;
+      box.querySelector(".cancel-note").textContent = "Cancel window closed. Staff has started your food.";
+    }
+  });
+}
+setInterval(tickCancelTimers, 1000);
 
 // ---------- Menu ----------
 onSnapshot(query(collection(db, "menu"), orderBy("order")),
@@ -235,9 +277,11 @@ function renderMyOrders() {
         '<div class="muted">' + esc(itemsText(o)) + '</div>' +
       '</div>' +
       stepsHtml(o.status) +
+      cancelBoxHtml(o) +
       '<p class="track-msg">' + statusMessage(o.status) + '</p>' +
     '</div>';
   }).join("");
+  tickCancelTimers();
 }
 
 function watch(id) {
@@ -245,9 +289,11 @@ function watch(id) {
   watching[id] = onSnapshot(doc(db, "orders", id),
     function (snap) {
       if (!snap.exists()) { removeId(id); return; }
-      const o = snap.data();
+      const o = Object.assign({ id: id }, snap.data());
       if (o.status === "Done") {
         toast("Token " + o.token + " collected. Thank you!");
+        removeId(id);
+      } else if (o.status === "Cancelled") {
         removeId(id);
       } else {
         live[id] = o;
@@ -258,10 +304,39 @@ function watch(id) {
   );
 }
 
+// ---------- Cancel an order (only while Received and inside 15 min) ----------
+$("my-orders").addEventListener("click", async function (e) {
+  const b = e.target.closest("button[data-cancel-id]");
+  if (!b) return;
+  const id = b.dataset.cancelId;
+  const o = live[id];
+  if (!o || o.status !== "Received" || o.cancelUntil.toMillis() <= Date.now()) {
+    toast("This order can no longer be cancelled.");
+    return;
+  }
+  if (!confirm("Cancel order token " + o.token + "?")) return;
+  b.disabled = true;
+  try {
+    await updateDoc(doc(db, "orders", id), { status: "Cancelled" });
+    toast("Order cancelled.");
+  } catch (err) {
+    toast("Could not cancel. The 15 minute window may have passed.");
+    b.disabled = false;
+    console.error(err);
+  }
+});
+
 // ---------- Place order ----------
 $("order-btn").addEventListener("click", async function () {
   const items = cartItems();
   if (!items.length) return;
+
+  const sid = $("student-id").value.trim();
+  if (!sid) {
+    toast("Please enter your student ID first.");
+    return;
+  }
+
   const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
   const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
 
@@ -280,8 +355,10 @@ $("order-btn").addEventListener("click", async function () {
         items: items,
         count: count,
         total: total,
+        studentId: sid,
         status: "Received",
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        cancelUntil: Timestamp.fromMillis(Date.now() + CANCEL_MINUTES * 60 * 1000)
       });
     });
     addId(orderRef.id);
