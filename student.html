@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +8,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
+ 
 <header class="top">
   <div class="brand">BreakBite</div>
   <nav class="tabs" aria-label="Student sections">
@@ -16,13 +17,13 @@
     <a class="tab" href="index.html">Home</a>
   </nav>
 </header>
-
+ 
 <main class="narrow">
   <section class="hero">
     <h1>Pre-order, skip the queue.</h1>
     <p class="muted">Smart Food, Smart Time. Pick your food, place the order, and collect it when your token is ready.</p>
   </section>
-
+ 
   <div class="card rush">
     <div>
       <b>Canteen rush</b>
@@ -30,7 +31,7 @@
     </div>
     <div class="num" id="rush-num">-</div>
   </div>
-
+ 
   <div class="card">
     <h2>Your student ID</h2>
     <p class="muted">Staff uses this to find your order. It is not shown publicly.</p>
@@ -38,22 +39,39 @@
       <input type="text" id="student-id" placeholder="e.g. 26251037" maxlength="12">
     </div>
   </div>
-
+ 
   <div class="card">
     <h2>Today's menu</h2>
     <div id="menu-list"><div class="empty">Loading menu...</div></div>
   </div>
-
+ 
+  <!-- NEW: promo code -->
+  <div class="card">
+    <h2>Promo code</h2>
+    <p class="muted">Have a code? Enter it to get a discount.</p>
+    <div id="coupon-slot"></div>
+    <div class="form-row">
+      <input type="text" id="promo-input" placeholder="Enter promo code" maxlength="12" autocomplete="off" style="text-transform:uppercase">
+      <button id="promo-apply" class="ghost">Apply</button>
+    </div>
+    <p class="error" id="promo-error" role="alert"></p>
+    <div class="totals" id="totals" hidden>
+      <div class="row"><span>Subtotal</span><span id="t-sub">0 Tk</span></div>
+      <div class="row promo" id="t-promo-row" hidden><span id="t-promo-label">Promo</span><span id="t-promo">0 Tk</span></div>
+      <div class="row grand"><span>Total</span><span id="t-total">0 Tk</span></div>
+    </div>
+  </div>
+ 
   <div class="cart">
     <span id="cart-text">No items selected</span>
     <button id="order-btn" disabled>Place pre-order</button>
   </div>
-
+ 
   <div class="card" id="orders-card" hidden>
     <h2>Your orders</h2>
     <div id="my-orders"></div>
   </div>
-
+ 
   <div class="card">
     <h2>Check a token</h2>
     <p class="muted">Forgot your status? Enter your token number.</p>
@@ -63,7 +81,7 @@
     </div>
     <div id="lookup-result"></div>
   </div>
-
+ 
   <div class="card">
     <h2>Check by student ID</h2>
     <p class="muted">Enter your student ID to see all your orders from today.</p>
@@ -74,39 +92,40 @@
     <div id="sid-result"></div>
   </div>
 </main>
-
+ 
 <div id="toast" hidden></div>
-
+ 
 <script type="module">
 import { db } from "./firebase.js";
 import {
-  collection, doc, onSnapshot, query, orderBy, where, getDocs, runTransaction,
+  collection, doc, onSnapshot, query, orderBy, where, getDocs, getDoc, runTransaction,
   serverTimestamp, Timestamp, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
+ 
 const STEPS = ["Received", "Preparing", "Ready"];
 const KEY = "breakbite_orders";      // list of order IDs this browser placed
 const OLD_KEY = "breakbite_order";   // single ID used by the earlier version
 const CANCEL_MINUTES = 15;
-
+ 
 let menu = [];
 let qty = {};
 let pending = 0;
+let applied = null;  // NEW: promo applied to the cart, { code, percent }
 let live = {};       // orderId -> latest order data
 let watching = {};   // orderId -> unsubscribe function
-
+ 
 const $ = function (id) { return document.getElementById(id); };
-
+ 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
   });
 }
-
+ 
 function price(f) {
   return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
-
+ 
 function toast(msg) {
   const t = $("toast");
   t.textContent = msg;
@@ -114,17 +133,56 @@ function toast(msg) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(function () { t.hidden = true; }, 2500);
 }
-
+ 
 function waitMinutes() {
   return 3 + pending * 2;
 }
-
+ 
 function cartItems() {
   return menu
     .filter(function (f) { return qty[f.id] > 0; })
     .map(function (f) { return { name: f.name, qty: qty[f.id], price: price(f) }; });
 }
-
+ 
+// ---------- NEW: promo animation helpers ----------
+const REDUCE = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+ 
+function confetti(el) {
+  if (REDUCE || !el) return;
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const cols = ["#d9482b", "#f2b33d", "#4c8c4a", "#3b2314", "#ffd0a8"];
+  for (let i = 0; i < 40; i++) {
+    const d = document.createElement("i");
+    d.className = "cf";
+    d.style.background = cols[i % cols.length];
+    const a = Math.random() * Math.PI * 2, v = 80 + Math.random() * 190;
+    d.style.left = cx + "px";
+    d.style.top = cy + "px";
+    d.style.setProperty("--dx", Math.cos(a) * v + "px");
+    d.style.setProperty("--dy", (Math.sin(a) * v - 120) + "px");
+    d.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+    document.body.appendChild(d);
+    setTimeout(function () { d.remove(); }, 1500);
+  }
+}
+ 
+// Counts a number up or down inside an element
+function countTo(el, to, suffix) {
+  const from = el._v || 0;
+  el._v = to;
+  if (REDUCE || from === to) { el.textContent = to + suffix; return; }
+  const t0 = performance.now(), dur = 450;
+  (function frame(now) {
+    const k = Math.min((now - t0) / dur, 1), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(from + (to - from) * e) + suffix;
+    if (k < 1) requestAnimationFrame(frame);
+  })(t0);
+  el.classList.remove("bump");
+  void el.offsetWidth;
+  el.classList.add("bump");
+}
+ 
 // ---------- saved order IDs ----------
 function loadIds() {
   try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; }
@@ -143,7 +201,7 @@ function removeId(id) {
   delete live[id];
   renderMyOrders();
 }
-
+ 
 // Move an order saved by the earlier version into the new list
 (function migrate() {
   const old = localStorage.getItem(OLD_KEY);
@@ -152,7 +210,7 @@ function removeId(id) {
     localStorage.removeItem(OLD_KEY);
   }
 })();
-
+ 
 // ---------- status helpers ----------
 function stepsHtml(status) {
   const idx = status === "Done" ? STEPS.length : STEPS.indexOf(status);
@@ -161,7 +219,7 @@ function stepsHtml(status) {
     return '<div class="step' + cls + '"><span>' + (i + 1) + '</span>' + s + '</div>';
   }).join("") + '</div>';
 }
-
+ 
 function statusMessage(status) {
   if (status === "Ready") return "Ready! Please collect your food.";
   if (status === "Preparing") return "Your food is being prepared.";
@@ -169,11 +227,11 @@ function statusMessage(status) {
   if (status === "Cancelled") return "This order was cancelled.";
   return "Waiting. Estimated " + waitMinutes() + " min.";
 }
-
+ 
 function itemsText(o) {
   return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
 }
-
+ 
 // ---------- cancel timer ----------
 function cancelBoxHtml(o) {
   if (o.status !== "Received" || !o.cancelUntil) return "";
@@ -185,7 +243,7 @@ function cancelBoxHtml(o) {
     '<p class="cancel-note">Free cancel until the timer ends or staff starts preparing.</p>' +
     '</div>';
 }
-
+ 
 function tickCancelTimers() {
   const now = Date.now();
   document.querySelectorAll("[data-cancel-until]").forEach(function (el) {
@@ -204,7 +262,7 @@ function tickCancelTimers() {
   });
 }
 setInterval(tickCancelTimers, 1000);
-
+ 
 // ---------- Menu ----------
 onSnapshot(query(collection(db, "menu"), orderBy("order")),
   function (snap) {
@@ -219,7 +277,7 @@ onSnapshot(query(collection(db, "menu"), orderBy("order")),
     console.error(err);
   }
 );
-
+ 
 function drawMenu() {
   if (!menu.length) {
     $("menu-list").innerHTML = '<div class="empty">No items right now. Please check again later.</div>';
@@ -240,7 +298,7 @@ function drawMenu() {
       '</div></div>';
   }).join("");
 }
-
+ 
 $("menu-list").addEventListener("click", function (e) {
   const b = e.target.closest("button[data-act]");
   if (!b) return;
@@ -251,15 +309,105 @@ $("menu-list").addEventListener("click", function (e) {
   drawMenu();
   updateCart();
 });
-
+ 
+// Cart bar shows the final price (after promo). The totals box shows the breakdown.
 function updateCart() {
   const items = cartItems();
   const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
-  const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
-  $("cart-text").textContent = count ? count + " item(s), " + total + " Tk" : "No items selected";
+  const sub = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
+  const promoAmt = applied ? Math.round(sub * applied.percent / 100) : 0;
+  const total = sub - promoAmt;
+  $("cart-text").textContent = count
+    ? count + " item(s), " + total + " Tk" + (promoAmt ? " (promo applied)" : "")
+    : "No items selected";
   $("order-btn").disabled = count === 0;
+  drawTotals(count, sub, promoAmt, total);
 }
-
+ 
+function drawTotals(count, sub, promoAmt, total) {
+  $("totals").hidden = count === 0;
+  if (!count) { $("t-sub")._v = 0; $("t-total")._v = 0; return; }
+  countTo($("t-sub"), sub, " Tk");
+  $("t-sub").classList.toggle("strike", !!applied);
+  $("t-promo-row").hidden = !applied;
+  if (applied) {
+    $("t-promo-label").textContent = "Promo " + applied.code + " (" + applied.percent + "% off)";
+    $("t-promo").textContent = "- " + promoAmt + " Tk";
+  }
+  countTo($("t-total"), total, " Tk");
+}
+ 
+// ---------- NEW: promo code ----------
+function drawCoupon() {
+  const slot = $("coupon-slot");
+  if (!applied) { slot.innerHTML = ""; return; }
+  slot.innerHTML = '<div class="coupon">' +
+    '<div><div class="lbl">Promo applied</div><div class="code">' + esc(applied.code) + '</div></div>' +
+    '<div><div class="pct">' + applied.percent + '%</div><div class="lbl">off your order</div></div>' +
+    '<span class="stamp">Applied</span>' +
+    '<i class="shine"></i>' +
+    '</div>' +
+    '<button class="ghost small" id="promo-remove" style="margin-bottom:12px">Remove code</button>';
+}
+ 
+function clearPromo() {
+  applied = null;
+  $("promo-input").value = "";
+  drawCoupon();
+  updateCart();
+}
+ 
+$("coupon-slot").addEventListener("click", function (e) {
+  if (e.target.closest("#promo-remove")) clearPromo();
+});
+ 
+$("promo-apply").addEventListener("click", async function () {
+  const btn = this;
+  if (btn.classList.contains("loading")) return;
+  const err = $("promo-error");
+  err.textContent = "";
+  const code = $("promo-input").value.trim().toUpperCase();
+  if (!code) { err.textContent = "Type a promo code first."; return; }
+  if (applied) { err.textContent = "A promo code is already applied. Remove it to use another."; return; }
+ 
+  btn.classList.add("loading");
+  let found = null;
+  try {
+    const wait = new Promise(function (r) { setTimeout(r, 650); });
+    if (/^[A-Z0-9]{3,12}$/.test(code)) {
+      const snap = await getDoc(doc(db, "promos", code));
+      if (snap.exists() && snap.data().active) found = snap.data();
+    }
+    await wait;
+  } catch (e) {
+    btn.classList.remove("loading");
+    err.textContent = "Could not check the code. Try again.";
+    console.error(e);
+    return;
+  }
+  btn.classList.remove("loading");
+ 
+  if (!found) {
+    err.textContent = "This promo code is not valid or has expired.";
+    const inp = $("promo-input");
+    inp.classList.remove("shake");
+    void inp.offsetWidth;
+    inp.classList.add("shake");
+    return;
+  }
+ 
+  applied = { code: code, percent: found.percent };
+  $("promo-input").value = "";
+  drawCoupon();
+  updateCart();
+  const m = document.querySelector("main");
+  setTimeout(function () {
+    m.classList.add("slam");
+    confetti(document.querySelector(".coupon"));
+    setTimeout(function () { m.classList.remove("slam"); }, 450);
+  }, 650);
+});
+ 
 // ---------- Rush radar ----------
 onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "Preparing"])),
   function (snap) {
@@ -273,7 +421,7 @@ onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "P
   },
   function (err) { console.error(err); }
 );
-
+ 
 // ---------- Your orders (all active orders from this browser) ----------
 function renderMyOrders() {
   const ids = Object.keys(live);
@@ -293,7 +441,7 @@ function renderMyOrders() {
   }).join("");
   tickCancelTimers();
 }
-
+ 
 function watch(id) {
   if (watching[id]) return;
   watching[id] = onSnapshot(doc(db, "orders", id),
@@ -313,7 +461,7 @@ function watch(id) {
     function (err) { console.error(err); }
   );
 }
-
+ 
 // ---------- Cancel an order (only while Received and inside 15 min) ----------
 $("my-orders").addEventListener("click", async function (e) {
   const b = e.target.closest("button[data-cancel-id]");
@@ -335,32 +483,38 @@ $("my-orders").addEventListener("click", async function (e) {
     console.error(err);
   }
 });
-
+ 
 // ---------- Place order ----------
 $("order-btn").addEventListener("click", async function () {
   const items = cartItems();
   if (!items.length) return;
-
+ 
   const sid = $("student-id").value.trim();
   if (!sid) {
     toast("Please enter your student ID first.");
     return;
   }
-
+ 
   const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
   const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
-
+ 
   const btn = $("order-btn");
   btn.disabled = true;
   btn.textContent = "Placing...";
   try {
     const counterRef = doc(db, "counters", "orders");
     const orderRef = doc(collection(db, "orders"));
+    const promoRef = applied ? doc(db, "promos", applied.code) : null;
     await runTransaction(db, async function (tx) {
       const cs = await tx.get(counterRef);
+      // NEW: check the promo again at the moment of ordering (staff may have turned it off)
+      let promoSnap = null;
+      if (promoRef) {
+        promoSnap = await tx.get(promoRef);
+        if (!promoSnap.exists() || !promoSnap.data().active) throw new Error("PROMO_INVALID");
+      }
       const next = (cs.exists() ? cs.data().last : 0) + 1;
-      tx.set(counterRef, { last: next });
-      tx.set(orderRef, {
+      const data = {
         token: next,
         items: items,
         count: count,
@@ -369,22 +523,42 @@ $("order-btn").addEventListener("click", async function () {
         status: "Received",
         createdAt: serverTimestamp(),
         cancelUntil: Timestamp.fromMillis(Date.now() + CANCEL_MINUTES * 60 * 1000)
-      });
+      };
+      if (promoSnap) {
+        const pct = promoSnap.data().percent;
+        const amt = Math.round(total * pct / 100);
+        data.subtotal = total;
+        data.promoCode = applied.code;
+        data.promoPercent = pct;
+        data.promoAmount = amt;
+        data.total = total - amt;
+        tx.update(promoRef, { used: (promoSnap.data().used || 0) + 1 });
+      }
+      tx.set(counterRef, { last: next });
+      tx.set(orderRef, data);
     });
     addId(orderRef.id);
     qty = {};
+    applied = null;
+    $("promo-input").value = "";
+    drawCoupon();
     drawMenu();
     updateCart();
     watch(orderRef.id);
     toast("Order placed!");
   } catch (err) {
-    toast("Could not place the order. Check your internet and try again.");
+    if (err && err.message === "PROMO_INVALID") {
+      clearPromo();
+      toast("This promo code is no longer valid. Please check your total.");
+    } else {
+      toast("Could not place the order. Check your internet and try again.");
+    }
     console.error(err);
   }
   btn.textContent = "Place pre-order";
   updateCart();
 });
-
+ 
 // ---------- Check any token ----------
 $("lookup-btn").addEventListener("click", async function () {
   const n = parseInt($("lookup-token").value, 10);
@@ -406,7 +580,7 @@ $("lookup-btn").addEventListener("click", async function () {
     console.error(err);
   }
 });
-
+ 
 // ---------- Check all orders by student ID (today) ----------
 $("sid-lookup-btn").addEventListener("click", async function () {
   const sid = $("sid-lookup").value.trim();
@@ -424,7 +598,7 @@ $("sid-lookup-btn").addEventListener("click", async function () {
     const found = snap.docs
       .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
       .sort(function (a, b) { return (b.token || 0) - (a.token || 0); });
-
+ 
     $("sid-result").innerHTML = found.map(function (o) {
       const body = o.status === "Cancelled"
         ? '<p class="track-msg">This order was cancelled.</p>'
@@ -443,9 +617,10 @@ $("sid-lookup-btn").addEventListener("click", async function () {
     console.error(err);
   }
 });
-
+ 
 // ---------- Start: reconnect every order saved in this browser ----------
 loadIds().forEach(watch);
 </script>
 </body>
-</html>\
+</html>
+ 

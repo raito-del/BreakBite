@@ -1,9 +1,10 @@
+
 /* =========================================================
    BreakBite shared stylesheet: "Spice Kitchen" theme
    Change only the colours in :root to re-theme the whole site.
    Food doodles and animations are included; no HTML change needed.
    ========================================================= */
-
+ 
 :root {
   /* ---- Main colours ---- */
   --bg: #fff3dc;          /* page background: warm cream */
@@ -13,29 +14,29 @@
   --danger: #b02a1a;      /* clear / remove buttons */
   --leaf: #4c8c4a;        /* fresh green */
   --turmeric: #f2b33d;    /* warm yellow highlight */
-
+ 
   /* ---- Ticket and status colours ---- */
   --t-yellow: #ffe08a;    /* Received */
   --t-blue: #ffd0a8;      /* Preparing (peach) */
   --t-mint: #cfeab0;      /* Ready (fresh leaf) */
-
+ 
   /* ---- Soft tints ---- */
   --bg-soft: #fff8ec;
   --ink-soft: #7a5a44;
   --line: #f0d7b8;
   --column: rgba(255, 255, 255, .6);
-
+ 
   /* ---- Shape and shadow ---- */
   --radius: 16px;
   --shadow: 4px 4px 0 var(--ink);
   --shadow-small: 2px 2px 0 var(--ink);
-
+ 
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-
+ 
 * { box-sizing: border-box; }
-
+ 
 /* Cream background with a faint food doodle pattern (burger, pizza, tea, samosa, fries, drumstick) */
 body {
   margin: 0;
@@ -48,11 +49,11 @@ body {
   overflow-x: hidden;
   animation: fadeIn .6s ease both;
 }
-
+ 
 h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -.3px; }
 .muted { color: var(--ink-soft); }
 .hidden { display: none !important; }
-
+ 
 /* ---------- Buttons ---------- */
 button {
   font: inherit;
@@ -92,7 +93,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   outline: 3px solid var(--turmeric);
   outline-offset: 2px;
 }
-
+ 
 /* Spinner: shown on any button that has the class "loading" */
 button.loading { pointer-events: none; }
 button.loading::after {
@@ -106,7 +107,7 @@ button.loading::after {
   border-radius: 50%;
   animation: spin .7s linear infinite;
 }
-
+ 
 /* ---------- Inputs ---------- */
 input, select {
   font: inherit;
@@ -120,7 +121,7 @@ input, select {
 label { display: block; font-weight: 700; font-size: 14px; }
 label.field { margin-bottom: 12px; }
 label input, label.field input { display: block; width: 100%; margin-top: 4px; }
-
+ 
 /* ---------- Header and tabs ---------- */
 header.top {
   background: var(--card);
@@ -161,7 +162,7 @@ header.top {
   color: var(--ink);
 }
 header.top .right { margin-left: auto; }
-
+ 
 /* ---------- Layout ---------- */
 main { max-width: 760px; margin: 0 auto; padding: 24px; }
 main.wide { max-width: 1100px; }
@@ -170,7 +171,7 @@ main.narrow { max-width: 760px; margin: 0 auto; padding: 24px; }
 .panel.active { display: block; animation: reveal .45s ease both; }
 .view { display: none; }
 .view.active { display: block; animation: reveal .45s ease both; }
-
+ 
 /* ---------- Cards ---------- */
 .card {
   background: var(--card);
@@ -196,17 +197,17 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
   color: var(--ink);
   font-weight: 600;
 }
-
+ 
 /* ---------- Hero (top banner) ---------- */
 .hero { margin-bottom: 20px; }
 .hero h1 { font-size: 30px; margin-bottom: 6px; color: var(--accent); }
 .hero p { margin: 0; color: var(--ink-soft); }
-
+ 
 /* ---------- Rush radar ---------- */
 .rush { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .rush b { font-weight: 800; }
 .rush .num, .rush #rush-num { font-size: 38px; font-weight: 900; color: var(--accent); }
-
+ 
 /* ---------- Menu items: lift slightly on hover ---------- */
 .item {
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
@@ -246,7 +247,7 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
 .price { font-weight: 900; white-space: nowrap; color: var(--accent); }
 .off-text { color: var(--ink-soft); }
 .empty { color: var(--ink-soft); padding: 8px 0; }
-
+ 
 /* ---------- List rows (Running discounts, Done orders) ---------- */
 .list-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -257,12 +258,12 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
 .list-row:last-child { border-bottom: 0; }
 .list-row > span { min-width: 0; overflow-wrap: anywhere; flex: 1 1 200px; }
 .list-row button { flex-shrink: 0; }
-
+ 
 /* ---------- Form row (inputs and button in one row) ---------- */
 .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .form-row input, .form-row select { flex: 1 1 160px; min-width: 0; }
 .form-row button { flex-shrink: 0; }
-
+ 
 /* ---------- Cart bar (student): slides up when the page opens ---------- */
 .cart {
   position: sticky; bottom: 12px;
@@ -276,7 +277,7 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
 }
 .cart button { background: var(--turmeric); color: var(--ink); border-color: var(--turmeric); }
 .cart button:hover { background: var(--accent); color: #ffffff; border-color: var(--accent); }
-
+ 
 /* ---------- Token tracking (student) ---------- */
 .ticket-big { text-align: center; padding: 8px 0; }
 .ticket-big small { color: var(--ink-soft); font-size: 14px; }
@@ -287,7 +288,7 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
 }
 /* Token pulses while the order is Ready (the third step is the current one) */
 .card:has(.step:nth-child(3).now) .tok { animation: pulse 1.1s ease-in-out infinite; }
-
+ 
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
 .step {
   text-align: center; padding: 12px 6px; border-radius: 12px;
@@ -305,10 +306,10 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
   animation: glow 1.4s ease-in-out infinite;
 }
 .track-msg { text-align: center; font-weight: 700; margin-bottom: 12px; }
-
+ 
 /* Token card fades in when it appears */
 #track-card:not([hidden]) { animation: reveal .5s ease both; }
-
+ 
 /* ---------- Forms and planner ---------- */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .summary {
@@ -321,7 +322,7 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
 }
 .summary b { font-size: 18px; }
 .error { color: var(--danger); margin: 8px 0 0; min-height: 22px; font-weight: 700; }
-
+ 
 /* ---------- Staff: stats ---------- */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
 .stat {
@@ -335,7 +336,7 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
 .stat .num { font-size: 34px; font-weight: 900; color: var(--ink); }
 .stat.hot .num { color: var(--accent); }
 .staff-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-
+ 
 /* ---------- Staff: order board ---------- */
 .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; margin-bottom: 20px; }
 .col {
@@ -350,7 +351,7 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
   background: var(--accent); color: var(--card);
   border-radius: 999px; padding: 0 10px; font-size: 14px; font-weight: 700;
 }
-
+ 
 .ticket {
   background: var(--card);
   border: 2px solid var(--ink);
@@ -369,24 +370,24 @@ a.card .go { display: inline-block; margin-top: 12px; font-weight: 800; color: v
 }
 .stub small { font-size: 12px; color: var(--ink-soft); }
 .stub b { font-size: 26px; font-weight: 900; color: var(--ink); }
-
+ 
 /* Status colours: Received = turmeric, Preparing = peach, Ready = fresh leaf */
 .ticket.Received .stub, .ticket.Pending .stub, .ticket.t-r .stub { background: var(--t-yellow); }
 .ticket.Preparing .stub, .ticket.t-p .stub { background: var(--t-blue); }
 .ticket.Ready .stub, .ticket.t-d .stub { background: var(--t-mint); }
-
+ 
 .tb, .ticket .body { padding: 10px 12px; flex: 1; min-width: 0; }
 .tb .it, .ticket .items { font-weight: 700; word-break: break-word; }
 .tb .mt, .ticket .meta { font-size: 13px; color: var(--ink-soft); margin: 4px 0 8px; }
 .ticket button { margin-top: 2px; }
-
+ 
 /* ---------- Staff: menu table ---------- */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 10px 8px; border-bottom: 2px dashed var(--line); vertical-align: middle; }
 th { font-size: 14px; color: var(--ink-soft); font-weight: 700; }
 td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
-
+ 
 /* ---------- Login (staff) ---------- */
 #login-screen { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
 .login-brand {
@@ -413,7 +414,7 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .login-form h2 { font-size: 26px; margin-bottom: 4px; color: var(--accent); }
 .login-form .msg { min-height: 24px; color: var(--danger); margin: 8px 0; font-weight: 700; }
 .login-form button { width: 100%; padding: 12px; }
-
+ 
 /* ---------- Toast ---------- */
 #toast {
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
@@ -423,7 +424,7 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
   max-width: calc(100vw - 32px); text-align: center;
   animation: reveal .3s ease both;
 }
-
+ 
 /* ---------- Keyframes ---------- */
 @keyframes wiggle {
   0%, 100% { transform: translate(-2px, -2px) rotate(0); }
@@ -448,7 +449,7 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
+ 
 /* ---------- Cancel timer (student) ---------- */
 .cancel-box {
   border: 2px dashed var(--ink);
@@ -482,7 +483,7 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .cancel-note { font-size: 13px; color: var(--ink-soft); margin: 6px 0 0; }
 .cancel-btn { background: var(--card); color: var(--danger); border-color: var(--danger); }
 .cancel-btn:hover { background: var(--danger); color: #ffffff; }
-
+ 
 /* ---------- Cancelled ticket and tag (staff) ---------- */
 .ticket.Cancelled { opacity: .55; }
 .ticket.Cancelled .stub { background: #eee; }
@@ -496,7 +497,7 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
   background: var(--turmeric);
 }
 .tag.red { background: #f7d4cc; color: var(--danger); border-color: var(--danger); }
-
+ 
 /* ---------- Responsive (phones) ---------- */
 @media (max-width: 700px) {
   main, main.narrow { padding: 16px; }
@@ -508,24 +509,24 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
     padding-bottom: 4px;
   }
   .tab { flex-shrink: 0; white-space: nowrap; }
-
+ 
   .form-grid, .stats, .board, .grid { grid-template-columns: 1fr; }
   .hero h1 { font-size: 24px; }
   .steps { gap: 6px; }
-
+ 
   .item { flex-wrap: wrap; }
   .item > div:first-child { flex: 1 1 60%; }
   .stepper { margin-left: auto; }
-
+ 
   .stub { width: 66px; }
   .stub b { font-size: 22px; }
   .tb, .ticket .body { padding: 10px; }
-
+ 
   .list-row { flex-direction: column; align-items: flex-start; }
   .list-row button { width: auto; }
-
+ 
   .form-row input, .form-row select, .form-row button { flex: 1 1 100%; width: 100%; }
-
+ 
   .table-wrap { overflow-x: visible; }
   table, thead, tbody, th, td, tr { display: block; width: 100%; }
   thead { display: none; }
@@ -539,12 +540,152 @@ td.actions { display: flex; flex-wrap: wrap; gap: 6px; }
   }
   td { border: none; padding: 4px 0; }
   td.actions { margin-top: 6px; }
-
+ 
   #login-screen { grid-template-columns: 1fr; }
   .login-brand { padding: 32px 24px; }
 }
-
+ 
 /* Users who prefer less motion get no animation */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+ 
+/* =========================================================
+   PROMO CODE feature (student promo box + staff promo manager)
+   Everything below is new. Nothing above this line was changed.
+   ========================================================= */
+ 
+/* ---------- Tap-to-try chips (student) ---------- */
+.promo-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.promo-chips .muted { font-size: 13px; }
+.promo-chips .chip { border-style: dashed; }
+ 
+/* ---------- Coupon ticket (student) ---------- */
+.coupon {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  background: var(--t-mint);
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  animation: ticketIn .75s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+/* the two ticket notches */
+.coupon::before, .coupon::after {
+  content: ""; position: absolute; top: 50%;
+  width: 26px; height: 26px;
+  background: var(--bg);
+  border: 3px solid var(--ink); border-radius: 50%;
+  transform: translateY(-50%);
+}
+.coupon::before { left: -15px; }
+.coupon::after { right: -15px; }
+.coupon .code { font-size: 26px; font-weight: 900; letter-spacing: 2px; color: var(--ink); }
+.coupon .pct { font-size: 34px; font-weight: 900; color: var(--accent); line-height: 1; }
+.coupon .lbl { font-size: 12px; font-weight: 800; color: var(--ink); text-transform: uppercase; letter-spacing: 1px; }
+ 
+/* shiny sweep across the ticket */
+.coupon .shine {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .75) 50%, transparent 70%);
+  transform: translateX(-130%);
+  animation: shine 2.6s ease-in-out .8s infinite;
+}
+ 
+/* "Applied" stamp */
+.stamp {
+  display: inline-block; transform: rotate(-6deg);
+  border: 3px solid var(--accent); color: var(--accent);
+  border-radius: 10px; padding: 4px 12px;
+  font-weight: 900; text-transform: uppercase; letter-spacing: 1px;
+  background: var(--card); box-shadow: var(--shadow-small);
+  animation: stampPop .45s cubic-bezier(.2, .9, .3, 1.3) both;
+}
+ 
+/* ---------- Totals box (student) ---------- */
+.totals {
+  border: 2px dashed var(--ink); border-radius: 12px;
+  padding: 12px 14px; background: var(--bg-soft); margin-top: 12px;
+}
+.totals .row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.totals .row.promo { color: var(--leaf); font-weight: 800; }
+.totals .row.grand { font-size: 20px; font-weight: 900; border-top: 2px solid var(--ink); margin-top: 6px; padding-top: 8px; }
+.strike { text-decoration: line-through; opacity: .55; }
+ 
+/* number "jump" when a value changes */
+.bump { display: inline-block; animation: bump .4s; }
+ 
+/* wrong code: the input shakes */
+.shake { animation: shake .45s; border-color: var(--danger) !important; }
+ 
+/* ---------- Confetti and floating +1 ---------- */
+.cf {
+  position: fixed; width: 9px; height: 13px; border-radius: 2px;
+  z-index: 50; pointer-events: none;
+  animation: fall 1.4s cubic-bezier(.2, .7, .4, 1) forwards;
+}
+.cf.em { width: auto; height: auto; background: none !important; font-size: 22px; }
+.flt {
+  position: fixed; z-index: 50; pointer-events: none;
+  font-weight: 900; color: var(--accent);
+  transform: translateX(-50%);
+  animation: floatUp .8s ease-out forwards;
+}
+ 
+/* quick screen shake when a code lands */
+.slam { animation: slam .4s; }
+ 
+/* ---------- Staff: promo list ---------- */
+.tag.on { background: var(--t-mint); }
+.tag.off { background: var(--bg-soft); color: var(--ink-soft); }
+.promo-list .list-row { align-items: center; }
+.list-row.fresh { animation: rowIn .7s ease both; }
+.tag.pop { animation: bump .4s; }
+ 
+/* ---------- Promo keyframes ---------- */
+@keyframes ticketIn {
+  0% { transform: translateX(120%) rotate(10deg); opacity: 0; }
+  60% { transform: translateX(-10px) rotate(-1.5deg); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes shine {
+  0% { transform: translateX(-130%); }
+  55%, 100% { transform: translateX(130%); }
+}
+@keyframes stampPop {
+  from { transform: rotate(-6deg) scale(2); opacity: 0; }
+  to { transform: rotate(-6deg) scale(1); opacity: 1; }
+}
+@keyframes shake {
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+@keyframes slam {
+  20% { transform: translate(-4px, 3px); }
+  40% { transform: translate(4px, -3px); }
+  60% { transform: translate(-3px, 2px); }
+  80% { transform: translate(2px, -1px); }
+}
+@keyframes bump {
+  40% { transform: scale(1.4); color: var(--accent); }
+}
+@keyframes fall {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  55% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); }
+  100% { transform: translate(var(--dx), calc(var(--dy) + 260px)) rotate(var(--rot)); opacity: 0; }
+}
+@keyframes floatUp { to { transform: translate(-50%, -46px); opacity: 0; } }
+@keyframes rowIn {
+  0% { transform: translateX(-30px); opacity: 0; background: var(--turmeric); }
+  100% { transform: none; opacity: 1; background: transparent; }
+}
+ 
+@media (max-width: 700px) {
+  .coupon .code { font-size: 20px; }
+}
+ 
