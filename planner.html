@@ -1,3 +1,5 @@
+
+Planner · HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,22 +7,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BreakBite - Break Planner</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Planner-only additions. Colours come from the theme variables in style.css */
+    .result-title { margin: 28px 0 12px; font-size: 22px; color: var(--accent); }
+    .card h3 { font-size: 18px; margin-bottom: 10px; }
+  </style>
 </head>
 <body>
-
+ 
 <header class="top">
   <div class="brand">BreakBite</div>
   <nav class="tabs" aria-label="Main sections">
     <a class="tab" href="student.html">Order</a>
     <a class="tab active" href="planner.html">Break Planner</a>
-    <a class="tab" href="index.html">Home</a>
+    <a class="tab" href="home.html">Home</a>
   </nav>
 </header>
-
+ 
 <main class="narrow">
   <h1>Break Planner</h1>
-  <p class="intro">Tell us how long your break is and how much money you have. We will suggest what you can eat.</p>
-
+  <p class="intro">Tell us how long your break is and how much money you have. We will suggest up to five good combos that fit both.</p>
+ 
   <div class="card">
     <h2>Your break</h2>
     <div class="form-grid">
@@ -34,45 +41,44 @@
     <button id="plan-btn" disabled>Loading menu...</button>
     <p class="error" id="error" role="alert"></p>
   </div>
-
-  <div class="card" id="result-card" hidden>
-    <h2>Suggested for you</h2>
-    <div class="summary">
-      <span id="result-info"></span>
-      <b id="result-total"></b>
-    </div>
-    <div id="result-list"></div>
+ 
+  <div id="result-area" hidden>
+    <h2 class="result-title">Suggested combos</h2>
+    <div id="result-cards"></div>
   </div>
 </main>
-
+ 
 <script type="module">
 import { db } from "./firebase.js";
 import {
   collection, doc, getDoc, getDocs, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
+ 
 const DEFAULTS = { minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5 };
-
+const OPTION_COUNT = 5;      // how many combos to show
+const MIN_DIFFERENCE = 2;    // two combos must differ by at least this many items
+const SEARCH_LIMIT = 2000000; // safety cap on how many item sets are checked
+ 
 let settings = Object.assign({}, DEFAULTS);
 let foods = [];
-
+ 
 const $ = function (id) { return document.getElementById(id); };
-
+ 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
   });
 }
-
+ 
 function showError(msg) {
   $("error").textContent = msg;
-  if (msg) $("result-card").hidden = true;
+  if (msg) $("result-area").hidden = true;
 }
-
+ 
 function finalPrice(f) {
   return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
-
+ 
 // ---------- load settings and menu once ----------
 async function load() {
   try {
@@ -81,7 +87,7 @@ async function load() {
   } catch (err) {
     console.error(err); // fall back to defaults
   }
-
+ 
   try {
     const snap = await getDocs(query(collection(db, "menu"), orderBy("order")));
     foods = snap.docs
@@ -91,7 +97,6 @@ async function load() {
         return {
           name: f.name,
           price: finalPrice(f),
-          oldPrice: f.price,
           discount: f.discount || 0,
           minutes: f.minutes > 0 ? f.minutes : settings.defaultEat
         };
@@ -103,80 +108,109 @@ async function load() {
     $("plan-btn").textContent = "Show options";
     return;
   }
-
+ 
   const t = $("time");
   t.min = settings.minBreak;
   t.max = settings.maxBreak;
   t.step = settings.step;
   t.placeholder = "e.g. " + Math.min(settings.maxBreak, Math.max(settings.minBreak, 15));
-
+ 
   $("plan-btn").disabled = false;
   $("plan-btn").textContent = "Show options";
   if (!foods.length) showError("No food is available right now. Please check again later.");
 }
-
-// ---------- best combination ----------
-// Most items that fit the time and money. Ties go to the bigger spend.
-// Same item can be picked more than once.
-function bestCombo(minutes, money) {
-  const cap = Math.min(money, 1500);
-  const W = cap + 1;
-  const size = (minutes + 1) * W;
-  const count = new Int16Array(size).fill(-1);
-  const from = new Int16Array(size).fill(-1);
-  count[0] = 0;
-
-  for (let i = 0; i < foods.length; i++) {
-    const ft = foods[i].minutes, fp = foods[i].price;
-    if (ft > minutes || fp > cap) continue;
-    for (let t = ft; t <= minutes; t++) {
-      for (let m = fp; m <= cap; m++) {
-        const prev = (t - ft) * W + (m - fp);
-        if (count[prev] < 0) continue;
-        const idx = t * W + m;
-        if (count[prev] + 1 > count[idx]) {
-          count[idx] = count[prev] + 1;
-          from[idx] = i;
-        }
+ 
+// ---------- find the best combos ----------
+// A combo is a set of different items. Each item is used at most once.
+// Score: more items first, then more of the break time used, then more of the money used.
+// Options must differ from each other by at least MIN_DIFFERENCE items, so the 5 choices are not near-copies.
+function findOptions(minutes, money) {
+  const items = foods.filter(function (f) { return f.minutes <= minutes && f.price <= money; });
+  const n = items.length;
+  const KEEP = 400;
+  const chosen = [];
+  let visited = 0;
+  let pool = [];
+ 
+  function score(count, t, m) {
+    return count * 10 + 5 * (t / minutes) + (money > 0 ? 5 * (m / money) : 0);
+  }
+ 
+  function search(start, t, m) {
+    if (++visited > SEARCH_LIMIT) return;
+    if (chosen.length) {
+      pool.push({ idx: chosen.slice(), t: t, m: m, s: score(chosen.length, t, m) });
+      if (pool.length > KEEP * 8) {
+        pool.sort(function (a, b) { return b.s - a.s; });
+        pool = pool.slice(0, KEEP);
       }
     }
-  }
-
-  let bestIdx = 0, bestCount = 0, bestSpend = 0;
-  for (let t = 0; t <= minutes; t++) {
-    for (let m = 0; m <= cap; m++) {
-      const c = count[t * W + m];
-      if (c > bestCount || (c === bestCount && c > 0 && m > bestSpend)) {
-        bestCount = c; bestSpend = m; bestIdx = t * W + m;
-      }
+    for (let i = start; i < n; i++) {
+      const f = items[i];
+      if (t + f.minutes > minutes || m + f.price > money) continue;
+      chosen.push(i);
+      search(i + 1, t + f.minutes, m + f.price);
+      chosen.pop();
     }
   }
-
+ 
+  search(0, 0, 0);
+  pool.sort(function (a, b) { return b.s - a.s; });
+ 
   const picked = [];
-  let idx = bestIdx;
-  let guard = 0;
-  while (idx > 0 && from[idx] >= 0 && guard++ < 200) {
-    const f = foods[from[idx]];
-    picked.push(f);
-    const t = Math.floor(idx / W), m = idx % W;
-    idx = (t - f.minutes) * W + (m - f.price);
+  for (let k = 0; k < pool.length && picked.length < OPTION_COUNT; k++) {
+    const c = pool[k];
+    const ok = picked.every(function (p) {
+      const shared = c.idx.filter(function (i) { return p.idx.indexOf(i) >= 0; }).length;
+      return c.idx.length + p.idx.length - 2 * shared >= MIN_DIFFERENCE;
+    });
+    if (ok) picked.push(c);
   }
-  return picked;
-}
-
-function groupItems(items) {
-  const map = {};
-  items.forEach(function (f) {
-    if (!map[f.name]) map[f.name] = { food: f, qty: 0 };
-    map[f.name].qty++;
+ 
+  return picked.map(function (c) {
+    return {
+      items: c.idx.map(function (i) { return items[i]; }),
+      time: c.t,
+      cost: c.m
+    };
   });
-  return Object.keys(map).map(function (k) { return map[k]; });
 }
-
+ 
+// ---------- show results ----------
+function renderOptions(options, minutes, money) {
+  const area = $("result-area");
+  const cards = $("result-cards");
+ 
+  if (!options.length) {
+    cards.innerHTML = '<div class="card"><div class="empty">Nothing fits in ' + minutes +
+      ' minutes and ' + money + ' Tk. Try more time or money.</div></div>';
+  } else {
+    cards.innerHTML = options.map(function (o, k) {
+      const rows = o.items.map(function (f) {
+        const off = f.discount > 0 ? ' <span class="badge">' + f.discount + '% off</span>' : '';
+        return '<div class="item"><div><div class="name">' + esc(f.name) + off + '</div></div>' +
+          '<div class="price">' + f.price + ' Tk</div></div>';
+      }).join("");
+      return '<div class="card">' +
+        '<h3>Option ' + (k + 1) + '</h3>' +
+        '<div class="summary">' +
+          '<span>Time used: ' + o.time + ' of ' + minutes + ' min</span>' +
+          '<b>Total: ' + o.cost + ' Tk (left ' + (money - o.cost) + ' Tk)</b>' +
+        '</div>' +
+        rows +
+      '</div>';
+    }).join("");
+    if (options.length < OPTION_COUNT) {
+      cards.innerHTML += '<p class="muted">Only ' + options.length + ' different combo(s) fit this time and money.</p>';
+    }
+  }
+  area.hidden = false;
+}
+ 
 $("plan-btn").addEventListener("click", function () {
   const minutes = parseInt($("time").value, 10);
   const money = parseInt($("money").value, 10);
-
+ 
   if (isNaN(minutes) || minutes < settings.minBreak || minutes > settings.maxBreak) {
     showError("Please enter a break time between " + settings.minBreak + " and " + settings.maxBreak + " minutes.");
     return;
@@ -190,33 +224,12 @@ $("plan-btn").addEventListener("click", function () {
     return;
   }
   showError("");
-
-  const items = bestCombo(minutes, money);
-  const list = $("result-list");
-
-  if (!items.length) {
-    list.innerHTML = '<div class="empty">Nothing fits in ' + minutes + ' minutes and ' + money +
-      ' Tk. Try more time or money.</div>';
-    $("result-info").textContent = minutes + " min, " + money + " Tk";
-    $("result-total").textContent = "";
-  } else {
-    const totalTime = items.reduce(function (a, f) { return a + f.minutes; }, 0);
-    const totalCost = items.reduce(function (a, f) { return a + f.price; }, 0);
-    list.innerHTML = groupItems(items).map(function (g) {
-      const f = g.food;
-      const off = f.discount > 0 ? ' <span class="badge">' + f.discount + '% off</span>' : '';
-      return '<div class="item"><div><div class="name">' + esc(f.name) + ' x' + g.qty + off +
-        '</div><div class="meta">' + f.minutes + ' min each</div></div>' +
-        '<div class="price">' + (f.price * g.qty) + ' Tk</div></div>';
-    }).join("");
-    $("result-info").textContent = "Time used: " + totalTime + " of " + minutes + " min";
-    $("result-total").textContent = "Total: " + totalCost + " Tk";
-  }
-  $("result-card").hidden = false;
+  renderOptions(findOptions(minutes, money), minutes, money);
 });
-
+ 
 load();
 </script>
-
+ 
 </body>
 </html>
+ 
