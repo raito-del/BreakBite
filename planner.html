@@ -1,5 +1,3 @@
-
-Planner · HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,7 +12,7 @@ Planner · HTML
   </style>
 </head>
 <body>
- 
+
 <header class="top">
   <div class="brand">BreakBite</div>
   <nav class="tabs" aria-label="Main sections">
@@ -23,11 +21,11 @@ Planner · HTML
     <a class="tab" href="home.html">Home</a>
   </nav>
 </header>
- 
+
 <main class="narrow">
   <h1>Break Planner</h1>
   <p class="intro">Tell us how long your break is and how much money you have. We will suggest up to five good combos that fit both.</p>
- 
+
   <div class="card">
     <h2>Your break</h2>
     <div class="form-grid">
@@ -41,44 +39,44 @@ Planner · HTML
     <button id="plan-btn" disabled>Loading menu...</button>
     <p class="error" id="error" role="alert"></p>
   </div>
- 
+
   <div id="result-area" hidden>
     <h2 class="result-title">Suggested combos</h2>
     <div id="result-cards"></div>
   </div>
 </main>
- 
+
 <script type="module">
 import { db } from "./firebase.js";
 import {
   collection, doc, getDoc, getDocs, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
- 
+
 const DEFAULTS = { minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5 };
 const OPTION_COUNT = 5;      // how many combos to show
 const MIN_DIFFERENCE = 2;    // two combos must differ by at least this many items
 const SEARCH_LIMIT = 2000000; // safety cap on how many item sets are checked
- 
+
 let settings = Object.assign({}, DEFAULTS);
 let foods = [];
- 
+
 const $ = function (id) { return document.getElementById(id); };
- 
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
   });
 }
- 
+
 function showError(msg) {
   $("error").textContent = msg;
   if (msg) $("result-area").hidden = true;
 }
- 
+
 function finalPrice(f) {
   return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
- 
+
 // ---------- load settings and menu once ----------
 async function load() {
   try {
@@ -87,7 +85,7 @@ async function load() {
   } catch (err) {
     console.error(err); // fall back to defaults
   }
- 
+
   try {
     const snap = await getDocs(query(collection(db, "menu"), orderBy("order")));
     foods = snap.docs
@@ -108,18 +106,18 @@ async function load() {
     $("plan-btn").textContent = "Show options";
     return;
   }
- 
+
   const t = $("time");
   t.min = settings.minBreak;
   t.max = settings.maxBreak;
   t.step = settings.step;
   t.placeholder = "e.g. " + Math.min(settings.maxBreak, Math.max(settings.minBreak, 15));
- 
+
   $("plan-btn").disabled = false;
   $("plan-btn").textContent = "Show options";
   if (!foods.length) showError("No food is available right now. Please check again later.");
 }
- 
+
 // ---------- find the best combos ----------
 // A combo is a set of different items. Each item is used at most once.
 // Score: more items first, then more of the break time used, then more of the money used.
@@ -131,11 +129,11 @@ function findOptions(minutes, money) {
   const chosen = [];
   let visited = 0;
   let pool = [];
- 
+
   function score(count, t, m) {
     return count * 10 + 5 * (t / minutes) + (money > 0 ? 5 * (m / money) : 0);
   }
- 
+
   function search(start, t, m) {
     if (++visited > SEARCH_LIMIT) return;
     if (chosen.length) {
@@ -153,10 +151,10 @@ function findOptions(minutes, money) {
       chosen.pop();
     }
   }
- 
+
   search(0, 0, 0);
   pool.sort(function (a, b) { return b.s - a.s; });
- 
+
   const picked = [];
   for (let k = 0; k < pool.length && picked.length < OPTION_COUNT; k++) {
     const c = pool[k];
@@ -166,7 +164,7 @@ function findOptions(minutes, money) {
     });
     if (ok) picked.push(c);
   }
- 
+
   return picked.map(function (c) {
     return {
       items: c.idx.map(function (i) { return items[i]; }),
@@ -175,12 +173,12 @@ function findOptions(minutes, money) {
     };
   });
 }
- 
+
 // ---------- show results ----------
 function renderOptions(options, minutes, money) {
   const area = $("result-area");
   const cards = $("result-cards");
- 
+
   if (!options.length) {
     cards.innerHTML = '<div class="card"><div class="empty">Nothing fits in ' + minutes +
       ' minutes and ' + money + ' Tk. Try more time or money.</div></div>';
@@ -206,11 +204,11 @@ function renderOptions(options, minutes, money) {
   }
   area.hidden = false;
 }
- 
+
 $("plan-btn").addEventListener("click", function () {
   const minutes = parseInt($("time").value, 10);
   const money = parseInt($("money").value, 10);
- 
+
   if (isNaN(minutes) || minutes < settings.minBreak || minutes > settings.maxBreak) {
     showError("Please enter a break time between " + settings.minBreak + " and " + settings.maxBreak + " minutes.");
     return;
@@ -226,10 +224,9 @@ $("plan-btn").addEventListener("click", function () {
   showError("");
   renderOptions(findOptions(minutes, money), minutes, money);
 });
- 
+
 load();
 </script>
- 
+
 </body>
 </html>
- 
