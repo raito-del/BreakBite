@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,9 +5,126 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BreakBite Staff</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ---------- staff dashboard look (uses the theme variables from style.css) ---------- */
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(217,72,43,.55); } 70% { box-shadow: 0 0 0 10px rgba(217,72,43,0); } 100% { box-shadow: 0 0 0 0 rgba(217,72,43,0); } }
+
+    #app .top .brand { display: flex; align-items: center; gap: 10px; }
+    #app .top .brand::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: livePulse 1.6s infinite; }
+    #app .top .brand::after { content: "STAFF"; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; color: var(--ink); background: var(--t-yellow); border: 2px solid var(--ink); border-radius: 999px; padding: 1px 8px; }
+
+    .panel h2 { letter-spacing: -.5px; }
+
+    /* stats */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+    .stat { position: relative; overflow: hidden; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; transition: transform .15s, box-shadow .15s; animation: rise .5s ease backwards; }
+    .stat::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 6px; background: var(--accent); }
+    .stat.s-orange::before { background: var(--turmeric); }
+    .stat.s-green::before { background: #4c8c4a; }
+    .stat:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--accent); }
+    .stat-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .stat-top .muted { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .chip { width: 36px; height: 36px; border: 2px solid var(--ink); border-radius: 10px; display: grid; place-items: center; font-weight: 900; flex-shrink: 0; }
+    .c-yellow { background: var(--t-yellow); }
+    .c-orange { background: var(--t-blue); }
+    .c-green { background: var(--t-mint); }
+    .stat .num { font-size: 38px; font-weight: 900; line-height: 1.1; margin-top: 6px; font-variant-numeric: tabular-nums; }
+    .stat .num small { font-size: 16px; font-weight: 700; color: var(--ink-soft); margin-left: 4px; }
+    .stat.hot .num { color: var(--accent); }
+    .bar { height: 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--bg-soft); margin-top: 10px; overflow: hidden; }
+    .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--turmeric), var(--accent)); transition: width .4s ease; }
+
+    /* board */
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; margin-bottom: 20px; }
+    .col { background: rgba(255,255,255,.6); border: 2px dashed var(--ink); border-radius: var(--radius); padding: 12px; min-height: 150px; animation: rise .5s ease backwards; }
+    .col h3 { display: flex; justify-content: space-between; align-items: center; margin: 0 0 10px; padding: 6px 10px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; }
+    .col.c-Received h3 { background: var(--t-yellow); }
+    .col.c-Preparing h3 { background: var(--t-blue); }
+    .col.c-Ready h3 { background: var(--t-mint); }
+    .count { display: inline-block; min-width: 26px; text-align: center; padding: 2px 8px; border: 2px solid var(--ink); border-radius: 999px; font-size: 13px; font-weight: 800; background: var(--accent); color: #fff; }
+    .ticket { background: #fff; border: 2px solid var(--ink); border-radius: 12px; margin-bottom: 10px; display: flex; overflow: hidden; box-shadow: var(--shadow-small); transition: transform .15s; }
+    .ticket:hover { transform: translateX(3px); }
+    .ticket .stub { width: 78px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 4px; border-right: 2px dashed var(--ink); }
+    .ticket .stub small { font-size: 12px; color: var(--ink-soft); }
+    .ticket .stub b { font-size: 26px; font-weight: 900; }
+    .ticket.Received .stub { background: var(--t-yellow); }
+    .ticket.Preparing .stub { background: var(--t-blue); }
+    .ticket.Ready .stub { background: var(--t-mint); }
+    .ticket .body { padding: 10px 12px; flex: 1; min-width: 0; }
+    .ticket .items { font-weight: 800; margin-top: 6px; }
+    .ticket .meta { font-size: 13px; color: var(--ink-soft); }
+    .ticket button { margin-top: 8px; }
+
+    /* lists */
+    .list-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 8px; border-bottom: 2px dashed var(--line); border-radius: 10px; transition: background .15s; }
+    .list-row:last-child { border-bottom: 0; }
+    .list-row:hover { background: var(--bg-soft); }
+    .list-row .price { font-weight: 900; color: var(--accent); white-space: nowrap; }
+    .empty { color: var(--ink-soft); border: 2px dashed var(--line); border-radius: 12px; padding: 14px; text-align: center; }
+
+    /* end of day card */
+    .card:has(> #eod-btn) { background: linear-gradient(135deg, #fff 55%, var(--t-yellow)); }
+
+    /* report archive */
+    .eyebrow { font-size: 12px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
+    .sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0 16px; }
+    .tile { background: #fff; border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow-small); padding: 12px 14px; }
+    .tile span { font-size: 12px; font-weight: 800; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .5px; }
+    .tile b { display: block; font-size: 22px; font-weight: 900; margin-top: 2px; }
+    .tile small { color: var(--ink-soft); font-size: 13px; }
+    .tile.top { background: var(--t-yellow); }
+    .reports { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .report { position: relative; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow-small); padding: 14px 16px; cursor: pointer; counter-reset: rk; transition: transform .15s, box-shadow .15s; animation: rise .5s ease backwards; }
+    .report:hover, .report:focus-visible { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--accent); outline: none; }
+    .rh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-bottom: 2px dashed var(--line); padding-bottom: 8px; margin-bottom: 6px; }
+    .rh .date { font-weight: 900; font-size: 16px; }
+    .rh .sales { font-weight: 900; color: var(--accent); }
+    .rmeta { font-size: 13px; color: var(--ink-soft); margin: 2px 0 8px; }
+    .ti { counter-increment: rk; margin: 8px 0; }
+    .ti .nm { font-size: 14px; font-weight: 700; }
+    .ti .nm::before { content: counter(rk) ". "; color: var(--accent); font-weight: 900; }
+    .trow { display: grid; grid-template-columns: 1fr 46px; gap: 8px; align-items: center; }
+    .track { height: 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
+    .track i { display: block; height: 100%; background: linear-gradient(90deg, var(--turmeric), var(--accent)); }
+    .trow b { text-align: right; font-size: 13px; }
+    .go { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 800; color: var(--accent); }
+
+    /* detail popup */
+    .overlay { position: fixed; inset: 0; background: rgba(59,35,20,.45); display: grid; place-items: center; padding: 20px; z-index: 20; }
+    .overlay.hidden { display: none; }
+    .modal { background: #fff; border: 3px solid var(--ink); border-radius: var(--radius); box-shadow: 6px 6px 0 var(--ink); width: min(640px, 100%); max-height: 90vh; overflow: auto; padding: 20px; animation: rise .25s ease backwards; }
+    .mh { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .mh h2 { font-size: 24px; margin: 2px 0 0; }
+    .x { font: inherit; font-size: 22px; font-weight: 900; width: 38px; height: 38px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; cursor: pointer; box-shadow: var(--shadow-small); line-height: 1; }
+    .x:hover { background: var(--accent); color: #fff; }
+    .mstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }
+    .mstats div { background: var(--bg-soft); border: 2px solid var(--ink); border-radius: 12px; padding: 8px 10px; }
+    .mstats span { font-size: 12px; color: var(--ink-soft); text-transform: uppercase; }
+    .mstats b { display: block; font-size: 18px; }
+    table.dt { width: 100%; border-collapse: collapse; }
+    table.dt th { font-size: 13px; text-align: left; color: var(--ink-soft); padding: 8px 6px; border-bottom: 2px solid var(--ink); }
+    table.dt td { padding: 9px 6px; border-bottom: 2px dashed var(--line); font-weight: 700; }
+    table.dt .r { text-align: right; font-variant-numeric: tabular-nums; }
+    table.dt tfoot td { border-top: 2px solid var(--ink); border-bottom: 0; font-weight: 900; font-size: 16px; }
+    table.dt tr.other td { color: var(--ink-soft); font-weight: 600; }
+    .share { height: 8px; border: 2px solid var(--ink); border-radius: 999px; background: var(--bg-soft); overflow: hidden; min-width: 90px; }
+    .share i { display: block; height: 100%; background: linear-gradient(90deg, var(--turmeric), var(--accent)); }
+    .note-small { font-size: 13px; color: var(--ink-soft); margin-top: 10px; }
+
+    /* highlights for token number and student ID in Completed */
+    .hl-token { display: inline-block; min-width: 46px; text-align: center; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 10px; background: var(--accent); color: #fff; font-weight: 900; box-shadow: var(--shadow-small); }
+    .hl-id { display: inline-block; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--t-yellow); color: var(--ink); font-weight: 900; letter-spacing: .3px; }
+
+    @media (max-width: 700px) {
+      .stats, .board { grid-template-columns: 1fr; }
+      .sum, .mstats { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>
 </head>
 <body>
- 
+
 <!-- ================= LOGIN ================= -->
 <div id="login-screen">
   <div class="login-brand">
@@ -30,7 +146,7 @@
     </form>
   </div>
 </div>
- 
+
 <!-- ================= APP ================= -->
 <div id="app" class="hidden">
   <header class="top">
@@ -39,64 +155,68 @@
       <button class="tab active" data-tab="orders">Orders</button>
       <button class="tab" data-tab="menu">Menu</button>
       <button class="tab" data-tab="waste">Food Waste Saver</button>
-      <!-- NEW: promo tab -->
       <button class="tab" data-tab="promo">Promo Codes</button>
       <button class="tab" data-tab="settings">Settings</button>
     </nav>
     <div class="right"><button class="ghost small" id="logout-btn">Log out</button></div>
   </header>
- 
+
   <main>
     <!-- Orders -->
     <section class="panel active" id="panel-orders">
       <h2>Orders</h2>
       <div class="stats">
-        <div class="stat" id="wait-stat">
-          <div class="muted">Orders in queue</div>
+        <div class="stat s-yellow" id="wait-stat">
+          <div class="stat-top"><span class="muted">Orders in queue</span><span class="chip c-yellow">Q</span></div>
           <div class="num" id="queue-count">0</div>
+          <div class="bar"><i id="queue-bar"></i></div>
         </div>
-        <div class="stat">
-          <div class="muted">Estimated waiting time</div>
+        <div class="stat s-orange">
+          <div class="stat-top"><span class="muted">Estimated waiting time</span><span class="chip c-orange">T</span></div>
           <div class="num" id="wait-time">3 min</div>
+          <div class="bar"><i id="wait-bar"></i></div>
         </div>
-        <div class="stat">
-          <div class="muted">Ready to collect</div>
+        <div class="stat s-green">
+          <div class="stat-top"><span class="muted">Ready to collect</span><span class="chip c-green">R</span></div>
           <div class="num" id="ready-count">0</div>
+          <div class="bar"><i id="ready-bar"></i></div>
         </div>
       </div>
- 
+
       <div class="board">
-        <div class="col">
+        <div class="col c-Received">
           <h3>Received <span class="count" id="cnt-Received">0</span></h3>
           <div id="col-Received"></div>
         </div>
-        <div class="col">
+        <div class="col c-Preparing">
           <h3>Preparing <span class="count" id="cnt-Preparing">0</span></h3>
           <div id="col-Preparing"></div>
         </div>
-        <div class="col">
+        <div class="col c-Ready">
           <h3>Ready <span class="count" id="cnt-Ready">0</span></h3>
           <div id="col-Ready"></div>
         </div>
       </div>
- 
+
       <div class="card">
         <h3>Completed (latest 10)</h3>
         <div id="done-list"></div>
       </div>
- 
+
       <div class="card">
         <h3>End of day</h3>
         <p class="muted">Saves today's report, removes all orders, and restarts token numbers from 1. Press this once at the end of the day.</p>
         <button class="danger" id="eod-btn">End of day: save report and reset tokens</button>
       </div>
- 
+
       <div class="card">
+        <div class="eyebrow">Report archive</div>
         <h3>Past daily reports</h3>
-        <div id="reports-list"></div>
+        <div class="sum" id="sum"></div>
+        <div class="reports" id="reports-list"></div>
       </div>
     </section>
- 
+
     <!-- Menu -->
     <section class="panel" id="panel-menu">
       <h2>Menu</h2>
@@ -120,7 +240,7 @@
         </div>
       </div>
     </section>
- 
+
     <!-- Food Waste Saver -->
     <section class="panel" id="panel-waste">
       <h2>Food Waste Saver</h2>
@@ -137,8 +257,8 @@
         <div id="waste-list"></div>
       </div>
     </section>
- 
-    <!-- NEW: Promo Codes -->
+
+    <!-- Promo Codes -->
     <section class="panel" id="panel-promo">
       <h2>Promo Codes</h2>
       <div class="card">
@@ -156,11 +276,11 @@
         <div class="promo-list" id="promo-list"></div>
       </div>
     </section>
- 
+
     <!-- Settings -->
     <section class="panel" id="panel-settings">
       <h2>Settings</h2>
- 
+
       <div class="card">
         <h3>Break Planner</h3>
         <p class="muted">These values control the Break Planner page for students.</p>
@@ -180,7 +300,7 @@
         </div>
         <button id="planner-save">Save planner settings</button>
       </div>
- 
+
       <div class="card">
         <h3>Change password</h3>
         <p class="muted">Password is managed through Firebase Authentication. Use the Firebase console to reset it.</p>
@@ -188,9 +308,14 @@
     </section>
   </main>
 </div>
- 
+
+<!-- Report detail popup -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+</div>
+
 <div id="toast" class="hidden"></div>
- 
+
 <script type="module">
 import { db, auth } from "./firebase.js";
 import {
@@ -200,26 +325,27 @@ import {
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
- 
+
 const STATUS_FLOW = ["Received", "Preparing", "Ready", "Done"];
 const NEXT_LABEL = { Received: "Start preparing", Preparing: "Mark ready", Ready: "Mark collected" };
 const DEFAULT_EAT_MIN = 5;
- 
+
 let menu = [];
 let orders = [];
+let reports = [];       // saved daily reports, newest first
 let started = false;
-let promos = [];        // NEW: all promo codes
-let freshPromo = null;  // NEW: code just created (for the slide-in animation)
-let poppedPromo = null; // NEW: code just switched on/off (for the tag bump)
- 
+let promos = [];
+let freshPromo = null;
+let poppedPromo = null;
+
 const $ = function (id) { return document.getElementById(id); };
- 
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
   });
 }
- 
+
 function toast(msg) {
   const t = $("toast");
   t.textContent = msg;
@@ -227,29 +353,29 @@ function toast(msg) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(function () { t.classList.add("hidden"); }, 2500);
 }
- 
+
 function finalPrice(f) {
   return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
- 
+
 function itemsText(o) {
   return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
 }
- 
+
 function timeText(o) {
   const d = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate() : new Date();
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
- 
-// Shows the student ID on any order. Old orders (placed before the ID was added) show "not given".
+
+// Old orders (placed before the ID was added) show "not given".
 function studentIdHtml(o) {
   return '<span class="badge">Student ID: ' + escapeHtml(o.studentId || "not given") + '</span>';
 }
- 
+
 function todayKey() {
-  return new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
+  return new Date().toLocaleDateString("en-CA");
 }
- 
+
 // ---------- login ----------
 onAuthStateChanged(auth, function (user) {
   if (user) {
@@ -260,7 +386,7 @@ onAuthStateChanged(auth, function (user) {
       watchOrders();
       watchMenu();
       watchReports();
-      watchPromos(); // NEW
+      watchPromos();
       loadPlannerSettings();
     }
   } else {
@@ -268,7 +394,7 @@ onAuthStateChanged(auth, function (user) {
     $("app").classList.add("hidden");
   }
 });
- 
+
 $("login-form").addEventListener("submit", async function (e) {
   e.preventDefault();
   $("login-error").textContent = "";
@@ -280,9 +406,9 @@ $("login-form").addEventListener("submit", async function (e) {
     console.error(err);
   }
 });
- 
+
 $("logout-btn").addEventListener("click", function () { signOut(auth); });
- 
+
 // ---------- tabs ----------
 function showTab(name) {
   document.querySelectorAll(".tab").forEach(function (b) {
@@ -295,9 +421,12 @@ function showTab(name) {
 document.querySelectorAll(".tab").forEach(function (b) {
   b.addEventListener("click", function () { showTab(b.dataset.tab); });
 });
- 
+
 // ---------- one click handler for dynamic buttons ----------
 document.addEventListener("click", function (e) {
+  if (e.target.closest("[data-close]") || e.target === $("overlay")) { closeReport(); return; }
+  const rep = e.target.closest("[data-report]");
+  if (rep) { openReport(rep.dataset.report); return; }
   const el = e.target.closest("[data-act]");
   if (!el) return;
   const id = el.dataset.id;
@@ -307,10 +436,18 @@ document.addEventListener("click", function (e) {
   if (act === "edit") editFood(id);
   if (act === "delete") deleteFood(id);
   if (act === "stopDiscount") setDiscount(id, 0);
-  if (act === "promoToggle") togglePromo(id); // NEW
-  if (act === "promoDelete") deletePromo(id); // NEW
+  if (act === "promoToggle") togglePromo(id);
+  if (act === "promoDelete") deletePromo(id);
 });
- 
+
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") closeReport();
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-report]")) {
+    e.preventDefault();
+    openReport(e.target.dataset.report);
+  }
+});
+
 // ---------- orders ----------
 function watchOrders() {
   onSnapshot(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50)),
@@ -321,7 +458,11 @@ function watchOrders() {
     function (err) { toast("Could not load orders."); console.error(err); }
   );
 }
- 
+
+function setBar(id, pct) {
+  $(id).style.width = Math.max(0, Math.min(100, pct)) + "%";
+}
+
 function renderOrders() {
   // Cancelled orders are not active: they leave the board, queue and waiting time
   const active = orders.filter(function (o) {
@@ -329,12 +470,16 @@ function renderOrders() {
   });
   const queue = active.filter(function (o) { return o.status === "Received" || o.status === "Preparing"; }).length;
   const ready = active.filter(function (o) { return o.status === "Ready"; }).length;
- 
+  const wait = 3 + queue * 2;
+
   $("queue-count").textContent = queue;
-  $("wait-time").textContent = (3 + queue * 2) + " min";
+  $("wait-time").textContent = wait + " min";
   $("ready-count").textContent = ready;
   $("wait-stat").classList.toggle("hot", queue >= 8);
- 
+  setBar("queue-bar", queue * 10);
+  setBar("wait-bar", wait * 4);
+  setBar("ready-bar", active.length ? Math.round(ready / active.length * 100) : 0);
+
   ["Received", "Preparing", "Ready"].forEach(function (s) {
     const list = active.filter(function (o) { return o.status === s; });
     $("cnt-" + s).textContent = list.length;
@@ -342,7 +487,7 @@ function renderOrders() {
       ? list.map(ticketHtml).join("")
       : '<div class="empty">No ' + s.toLowerCase() + ' orders.</div>';
   });
- 
+
   // Completed list shows Done and Cancelled orders, with the student ID on each row
   const done = orders
     .filter(function (o) { return o.status === "Done" || o.status === "Cancelled"; })
@@ -351,15 +496,15 @@ function renderOrders() {
     ? done.map(function (o) {
         const tag = o.status === "Cancelled" ? ' <span class="tag red">Cancelled</span>' : "";
         return '<div class="list-row">' +
-          '<span><span class="badge off">#' + o.token + '</span>' + tag + ' ' +
-            studentIdHtml(o) + ' ' +
+          '<span><span class="hl-token">#' + o.token + '</span>' + tag + ' ' +
+            '<span class="hl-id">Student ID: ' + escapeHtml(o.studentId || "not given") + '</span> ' +
             escapeHtml(itemsText(o)) + '</span>' +
-          '<span class="muted">' + o.total + ' Tk, ' + timeText(o) + '</span>' +
+          '<span class="price">' + o.total + ' Tk <span class="muted" style="font-weight:600">· ' + timeText(o) + '</span></span>' +
         '</div>';
       }).join("")
     : '<div class="empty">Nothing completed yet.</div>';
 }
- 
+
 function ticketHtml(o) {
   return '<div class="ticket ' + o.status + '">' +
     '<div class="stub"><small>Token</small><b>' + o.token + '</b></div>' +
@@ -370,7 +515,7 @@ function ticketHtml(o) {
       '<button class="small" data-act="advance" data-id="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>' +
     '</div></div>';
 }
- 
+
 function advanceOrder(id) {
   const o = orders.find(function (x) { return x.id === id; });
   if (!o) return;
@@ -381,10 +526,10 @@ function advanceOrder(id) {
     console.error(err);
   });
 }
- 
+
 // ---------- end of day ----------
 $("eod-btn").addEventListener("click", endOfDay);
- 
+
 async function endOfDay() {
   let all;
   try {
@@ -394,12 +539,12 @@ async function endOfDay() {
     console.error(err);
     return;
   }
- 
+
   if (all.empty) {
     toast("No orders to close today.");
     return;
   }
- 
+
   const activeCount = all.docs.filter(function (d) {
     const s = d.data().status;
     return s !== "Done" && s !== "Cancelled";
@@ -410,26 +555,36 @@ async function endOfDay() {
   }
   if (!confirm(msg)) return;
   if (!confirm("This cannot be undone. Are you sure?")) return;
- 
+
   // Build the summary before anything is deleted.
   // Cancelled orders are not counted in sales, items or the order total.
   let totalSales = 0;
   let countedOrders = 0;
-  const itemCount = {};
+  const itemCount = {};      // name -> qty (used by the Top items list)
+  const itemDetail = {};     // name -> {qty, amount} (used by the detail popup)
   all.docs.forEach(function (d) {
     const o = d.data();
     if (o.status === "Cancelled") return;
     countedOrders++;
     totalSales += Number(o.total) || 0;
     (o.items || []).forEach(function (i) {
-      itemCount[i.name] = (itemCount[i.name] || 0) + (Number(i.qty) || 0);
+      const qty = Number(i.qty) || 0;
+      const amount = i.price !== undefined ? qty * (Number(i.price) || 0) : null;
+      itemCount[i.name] = (itemCount[i.name] || 0) + qty;
+      if (!itemDetail[i.name]) itemDetail[i.name] = { name: i.name, qty: 0, amount: 0, priced: true };
+      itemDetail[i.name].qty += qty;
+      if (amount === null) itemDetail[i.name].priced = false;
+      else itemDetail[i.name].amount += amount;
     });
   });
- 
+  const itemDetails = Object.values(itemDetail)
+    .map(function (x) { return { name: x.name, qty: x.qty, amount: x.priced ? x.amount : null }; })
+    .sort(function (a, b) { return b.qty - a.qty; });
+
   const btn = $("eod-btn");
   btn.disabled = true;
   btn.textContent = "Closing the day...";
- 
+
   try {
     // 1. Save the report first. If this fails, nothing is deleted.
     await addDoc(collection(db, "daily_reports"), {
@@ -437,10 +592,11 @@ async function endOfDay() {
       totalOrders: countedOrders,
       totalSales: totalSales,
       items: itemCount,
+      itemDetails: itemDetails,
       activeAtClose: activeCount,
       createdAt: serverTimestamp()
     });
- 
+
     // 2. Delete all orders in batches (Firestore allows up to 500 per batch)
     const docs = all.docs;
     for (let i = 0; i < docs.length; i += 400) {
@@ -448,46 +604,131 @@ async function endOfDay() {
       docs.slice(i, i + 400).forEach(function (d) { batch.delete(d.ref); });
       await batch.commit();
     }
- 
+
     // 3. Restart token numbers from 1
     await setDoc(doc(db, "counters", "orders"), { last: 0 });
- 
+
     toast("Day closed. Report saved and tokens restart from 1.");
   } catch (err) {
     toast("Could not close the day. Nothing was deleted if the report failed. Try again.");
     console.error(err);
   }
- 
+
   btn.disabled = false;
   btn.textContent = "End of day: save report and reset tokens";
 }
- 
+
 // ---------- past reports ----------
 function watchReports() {
-  onSnapshot(query(collection(db, "daily_reports"), orderBy("createdAt", "desc"), limit(7)),
+  onSnapshot(query(collection(db, "daily_reports"), orderBy("createdAt", "desc"), limit(30)),
     function (snap) {
-      if (snap.empty) {
-        $("reports-list").innerHTML = '<div class="empty">No reports yet. A report is saved each time you press End of day.</div>';
-        return;
-      }
-      $("reports-list").innerHTML = snap.docs.map(function (d) {
-        const r = d.data();
-        const top = Object.keys(r.items || {})
-          .map(function (name) { return { name: name, qty: r.items[name] }; })
-          .sort(function (a, b) { return b.qty - a.qty; })
-          .slice(0, 5)
-          .map(function (i) { return i.name + " x" + i.qty; })
-          .join(", ");
-        return '<div class="list-row">' +
-          '<span><b>' + escapeHtml(r.date || "") + '</b>: ' + (r.totalOrders || 0) + ' orders, ' +
-          (r.totalSales || 0) + ' Tk<br><span class="muted">Top items: ' + escapeHtml(top || "none") + '</span></span>' +
-        '</div>';
-      }).join("");
+      reports = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderReports();
     },
     function (err) { console.error(err); }
   );
 }
- 
+
+function namedItems(r) {
+  // Reports saved before the detail update only have the items map (qty only)
+  if (Array.isArray(r.itemDetails) && r.itemDetails.length) return r.itemDetails;
+  return Object.keys(r.items || {}).map(function (name) {
+    return { name: name, qty: r.items[name], amount: null };
+  }).sort(function (a, b) { return b.qty - a.qty; });
+}
+
+function renderReports() {
+  if (!reports.length) {
+    $("sum").innerHTML = "";
+    $("reports-list").innerHTML = '<div class="empty">No reports yet. A report is saved each time you press End of day.</div>';
+    return;
+  }
+
+  // Summary across all saved days
+  const sales = reports.reduce(function (a, r) { return a + (Number(r.totalSales) || 0); }, 0);
+  const orderTotal = reports.reduce(function (a, r) { return a + (Number(r.totalOrders) || 0); }, 0);
+  const totals = {};
+  reports.forEach(function (r) {
+    namedItems(r).forEach(function (i) {
+      if (!totals[i.name]) totals[i.name] = { name: i.name, qty: 0, days: 0 };
+      totals[i.name].qty += Number(i.qty) || 0;
+      totals[i.name].days += 1;
+    });
+  });
+  const ranked = Object.values(totals).sort(function (a, b) { return b.qty - a.qty; });
+  const best = ranked[0];
+  const next3 = ranked.slice(1, 4).map(function (x) { return x.name; }).join(", ") || "None";
+  $("sum").innerHTML =
+    '<div class="tile"><span>Days recorded</span><b>' + reports.length + '</b><small>' + orderTotal + ' orders in total</small></div>' +
+    '<div class="tile top"><span>Top item overall</span><b>' + escapeHtml(best ? best.name : "None") + '</b><small>' +
+      (best ? best.qty + ' sold across ' + best.days + ' day(s)' : '') + '</small></div>' +
+    '<div class="tile"><span>Total sales</span><b>' + sales + ' Tk</b><small>all saved days</small></div>' +
+    '<div class="tile"><span>Next best sellers</span><b style="font-size:15px;line-height:1.3">' + escapeHtml(next3) + '</b></div>';
+
+  $("reports-list").innerHTML = reports.map(function (r) {
+    const top = namedItems(r).slice(0, 5);
+    const max = top.length ? Number(top[0].qty) || 1 : 1;
+    const bars = top.map(function (i) {
+      return '<div class="ti"><div class="nm">' + escapeHtml(i.name) + '</div>' +
+        '<div class="trow"><div class="track"><i style="width:' + Math.round((Number(i.qty) || 0) / max * 100) + '%"></i></div>' +
+        '<b>x' + i.qty + '</b></div></div>';
+    }).join("") || '<div class="muted">No items recorded.</div>';
+    return '<div class="report" data-report="' + r.id + '" tabindex="0" role="button" aria-label="Details for ' + escapeHtml(r.date || "") + '">' +
+      '<div class="rh"><span class="date">' + escapeHtml(r.date || "") + '</span><span class="sales">' + (r.totalSales || 0) + ' Tk</span></div>' +
+      '<div class="rmeta">' + (r.totalOrders || 0) + ' orders</div>' +
+      bars +
+      '<span class="go">View full details &rarr;</span>' +
+    '</div>';
+  }).join("");
+}
+
+function openReport(id) {
+  const r = reports.find(function (x) { return x.id === id; });
+  if (!r) return;
+  const rows = namedItems(r).slice().sort(function (a, b) {
+    return (Number(b.amount) || 0) - (Number(a.amount) || 0) || b.qty - a.qty;
+  });
+  const soldQty = rows.reduce(function (a, i) { return a + (Number(i.qty) || 0); }, 0);
+  const hasAmounts = rows.some(function (i) { return i.amount !== null && i.amount !== undefined; });
+  const sales = Number(r.totalSales) || 0;
+  const topName = rows.length ? rows[0].name : "None";
+
+  $("modal").innerHTML =
+    '<div class="mh">' +
+      '<div><div class="eyebrow">Daily detail</div><h2>' + escapeHtml(r.date || "") + '</h2></div>' +
+      '<button class="x" data-close aria-label="Close">&times;</button>' +
+    '</div>' +
+    '<div class="mstats">' +
+      '<div><span>Orders</span><b>' + (r.totalOrders || 0) + '</b></div>' +
+      '<div><span>Sales</span><b>' + sales + ' Tk</b></div>' +
+      '<div><span>Items sold</span><b>' + soldQty + '</b></div>' +
+      '<div><span>Top item</span><b>' + escapeHtml(topName) + '</b></div>' +
+    '</div>' +
+    '<table class="dt">' +
+      '<thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Amount</th><th>Share</th></tr></thead>' +
+      '<tbody>' + rows.map(function (i) {
+        const hasAmt = i.amount !== null && i.amount !== undefined;
+        const pct = hasAmt && sales ? Math.round(i.amount / sales * 100) : 0;
+        return '<tr>' +
+          '<td>' + escapeHtml(i.name) + '</td>' +
+          '<td class="r">' + i.qty + '</td>' +
+          '<td class="r">' + (hasAmt ? i.amount + ' Tk' : '-') + '</td>' +
+          '<td>' + (hasAmt ? '<div class="share"><i style="width:' + pct + '%"></i></div>' : '') + '</td>' +
+        '</tr>';
+      }).join("") + '</tbody>' +
+      '<tfoot><tr><td>Total</td><td class="r">' + soldQty + '</td><td class="r">' + sales + ' Tk</td><td></td></tr></tfoot>' +
+    '</table>' +
+    (hasAmounts ? '' : '<p class="note-small">Amounts per item were not saved for this report. Only quantities are shown.</p>');
+
+  $("overlay").classList.remove("hidden");
+  const closeBtn = $("modal").querySelector("[data-close]");
+  if (closeBtn) closeBtn.focus();
+}
+
+function closeReport() {
+  $("overlay").classList.add("hidden");
+}
+
 // ---------- menu ----------
 function watchMenu() {
   onSnapshot(query(collection(db, "menu"), orderBy("order")),
@@ -499,7 +740,7 @@ function watchMenu() {
     function (err) { toast("Could not load the menu."); console.error(err); }
   );
 }
- 
+
 function renderMenu() {
   const rows = menu.map(function (f) {
     const price = f.discount > 0
@@ -521,7 +762,7 @@ function renderMenu() {
     ? rows.join("")
     : '<tr><td colspan="5" class="empty">No items yet. Add one below.</td></tr>';
 }
- 
+
 async function addFood() {
   const name = $("food-name").value.trim();
   const price = parseInt($("food-price").value, 10);
@@ -548,13 +789,13 @@ async function addFood() {
     console.error(err);
   }
 }
- 
+
 function toggleAvailable(id) {
   const f = menu.find(function (x) { return x.id === id; });
   if (!f) return;
   updateDoc(doc(db, "menu", id), { available: !f.available });
 }
- 
+
 function editFood(id) {
   const f = menu.find(function (x) { return x.id === id; });
   if (!f) return;
@@ -573,23 +814,23 @@ function editFood(id) {
   updateDoc(doc(db, "menu", id), { name: name.trim(), price: price, minutes: minutes });
   toast("Menu item updated.");
 }
- 
+
 function deleteFood(id) {
   const f = menu.find(function (x) { return x.id === id; });
   if (!f) return;
   if (!confirm("Remove " + f.name + " from the menu?")) return;
   deleteDoc(doc(db, "menu", id));
 }
- 
+
 $("add-food-btn").addEventListener("click", addFood);
- 
+
 // ---------- food waste saver ----------
 function renderWaste() {
   const available = menu.filter(function (f) { return f.available; });
   $("waste-food").innerHTML = available.map(function (f) {
     return '<option value="' + f.id + '">' + escapeHtml(f.name) + ' (' + f.price + ' Tk)</option>';
   }).join("");
- 
+
   const discounted = menu.filter(function (f) { return f.discount > 0; });
   $("waste-list").innerHTML = discounted.length
     ? discounted.map(function (f) {
@@ -600,14 +841,14 @@ function renderWaste() {
       }).join("")
     : '<div class="empty">No discounts running. Pick a food above to start one.</div>';
 }
- 
+
 function setDiscount(id, percent) {
   updateDoc(doc(db, "menu", id), { discount: percent }).catch(function (err) {
     toast("Could not save the discount.");
     console.error(err);
   });
 }
- 
+
 $("waste-start").addEventListener("click", function () {
   const id = $("waste-food").value;
   const percent = parseInt($("waste-percent").value, 10);
@@ -619,8 +860,8 @@ $("waste-start").addEventListener("click", function () {
   setDiscount(id, percent);
   toast("Discount started.");
 });
- 
-// ---------- NEW: promo codes ----------
+
+// ---------- promo codes ----------
 // Each code is one document in "promos", and the document ID is the code itself.
 // Fields: code, percent, active, used, createdAt  (the student page reads these)
 function watchPromos() {
@@ -631,14 +872,14 @@ function watchPromos() {
         .sort(function (a, b) {
           const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : Date.now();
           const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : Date.now();
-          return tb - ta; // newest first
+          return tb - ta;
         });
       renderPromos();
     },
     function (err) { toast("Could not load promo codes."); console.error(err); }
   );
 }
- 
+
 function renderPromos() {
   $("promo-list").innerHTML = promos.length
     ? promos.map(function (p) {
@@ -658,14 +899,14 @@ function renderPromos() {
   freshPromo = null;
   poppedPromo = null;
 }
- 
+
 $("promo-add").addEventListener("click", async function () {
   const btn = this;
   const msg = $("promo-msg");
   msg.textContent = "";
   const code = $("promo-code").value.trim().toUpperCase();
   const percent = parseInt($("promo-percent").value, 10);
- 
+
   if (!/^[A-Z0-9]{3,12}$/.test(code)) {
     msg.textContent = "Code must be 3 to 12 letters or numbers, no spaces.";
     return;
@@ -674,7 +915,7 @@ $("promo-add").addEventListener("click", async function () {
     msg.textContent = "Discount must be between 5 and 90.";
     return;
   }
- 
+
   btn.classList.add("loading");
   try {
     const ref = doc(db, "promos", code);
@@ -701,7 +942,7 @@ $("promo-add").addEventListener("click", async function () {
   }
   btn.classList.remove("loading");
 });
- 
+
 function togglePromo(id) {
   const p = promos.find(function (x) { return x.id === id; });
   if (!p) return;
@@ -711,7 +952,7 @@ function togglePromo(id) {
     console.error(err);
   });
 }
- 
+
 function deletePromo(id) {
   if (!confirm("Delete promo code " + id + "? Students will no longer be able to use it.")) return;
   deleteDoc(doc(db, "promos", id)).then(function () {
@@ -721,10 +962,10 @@ function deletePromo(id) {
     console.error(err);
   });
 }
- 
+
 // ---------- planner settings ----------
 const PLANNER_DEFAULTS = { minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5 };
- 
+
 async function loadPlannerSettings() {
   try {
     const snap = await getDoc(doc(db, "settings", "planner"));
@@ -737,7 +978,7 @@ async function loadPlannerSettings() {
     console.error(err);
   }
 }
- 
+
 $("planner-save").addEventListener("click", async function () {
   const minBreak = parseInt($("pl-min").value, 10);
   const maxBreak = parseInt($("pl-max").value, 10);
@@ -764,4 +1005,3 @@ $("planner-save").addEventListener("click", async function () {
 </script>
 </body>
 </html>
- 

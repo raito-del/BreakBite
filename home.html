@@ -22,6 +22,26 @@
     .role-btn.on { background: var(--t-mint); }
     .role-btn:hover { background: var(--accent); color: #fff; }
     .role-btn:hover .ico { background: #fff; color: var(--ink); }
+
+    /* Card: click the card to lift its text up (click again to bring it back).
+       The Open button is always shown; it turns red on hover/press. */
+    /* Same look as the real card style in style.css (a.card), since these are now <div>s */
+    .home-card { color: var(--ink); transition: transform .15s, box-shadow .15s; }
+    .home-card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--accent); }
+    .home-card h2 { color: var(--accent); margin-bottom: 6px; }
+    .home-card p { margin: 0; color: var(--ink-soft); }
+    .home-card { cursor: pointer; display: flex; flex-direction: column; gap: 12px; }
+    .home-card .card-text { transition: transform .3s ease; }
+    .home-card.lifted .card-text { transform: translateY(-14px); }
+    .home-card .open-opt {
+      align-self: flex-start;
+      background: var(--card); color: var(--ink);
+      border: 2px solid var(--ink); border-radius: 12px;
+      padding: 8px 16px; box-shadow: var(--shadow-small);
+      font-weight: 800; text-decoration: none; cursor: pointer;
+    }
+    .home-card .open-opt:hover,
+    .home-card .open-opt:active { background: var(--accent); color: #fff; }
   </style>
 </head>
 <body>
@@ -51,18 +71,31 @@
   </section>
 
   <div class="grid">
-    <a class="card" href="student.html">
-      <h2>Order food</h2>
-      <p>See today's menu, pick your items, and track your token until it is ready.</p>
-      <span class="go">Open ordering &rarr;</span>
-    </a>
-    <a class="card" href="planner.html">
-      <h2>Break Planner</h2>
-      <p>Enter your break time and money. We suggest what you can eat in that time.</p>
-      <span class="go">Plan my break &rarr;</span>
-    </a>
+    <div class="card home-card" data-card>
+      <div class="card-text">
+        <h2>Order food</h2>
+        <p>See today's menu, pick your items, and track your token until it is ready.</p>
+      </div>
+      <a class="open-opt" href="student.html">Open ordering &rarr;</a>
+    </div>
+    <div class="card home-card" data-card>
+      <div class="card-text">
+        <h2>Break Planner</h2>
+        <p>Enter your break time and money. We suggest what you can eat in that time.</p>
+      </div>
+      <a class="open-opt" href="planner.html">Plan my break &rarr;</a>
+    </div>
   </div>
 </main>
+
+<script>
+  document.querySelectorAll("[data-card]").forEach(function (card) {
+    card.addEventListener("click", function (e) {
+      if (e.target.closest(".open-opt")) return;   // the button navigates
+      card.classList.toggle("lifted");              // click the section: text animates up/down
+    });
+  });
+</script>
 
 </body>
 </html>
