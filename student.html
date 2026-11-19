@@ -13,7 +13,8 @@
   <nav class="tabs" aria-label="Student sections">
     <a class="tab active" href="student.html">Order</a>
     <a class="tab" href="planner.html">Break Planner</a>
-    <a class="tab" href="index.html">Home</a>
+    <a class="tab" href="green-points/index.html">Green Points</a>
+    <a class="tab" href="home.html">Home</a>
   </nav>
 </header>
  
@@ -100,8 +101,15 @@ import {
   collection, doc, onSnapshot, query, orderBy, where, getDocs, getDoc, runTransaction,
   serverTimestamp, Timestamp, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-// [NEW] Green Points question shown when the order button is pressed
-import { askGreenPoints } from "./green-points/order-hook.js";
+// [GREEN] rules and ID check from the Green Points core file
+import { getGreenRules, isValidStudentId } from "./green-points/green.js";
+
+// [GREEN] The "Use Green Points?" popup lives in green-points/order-hook.js.
+// It is loaded on its own, so the order page still works if that file has a problem.
+let askUseCoins = null;
+import("./green-points/order-hook.js")
+  .then(function (m) { askUseCoins = m.askUseCoins || null; })
+  .catch(function (err) { console.error(err); });
  
 const STEPS = ["Received", "Preparing", "Ready"];
 const KEY = "breakbite_orders";      // list of order IDs this browser placed
@@ -496,28 +504,38 @@ $("order-btn").addEventListener("click", async function () {
     return;
   }
  
-  // [NEW] Green Points question: asked after the student ID check, before the order is written.
-  let greenCode = null;
-  try {
-    const gp = await askGreenPoints(sid);
-    greenCode = gp.greenCode;
-  } catch (err) {
-    if (err && err.message === "CANCELLED") return; // student closed the question: no order
-    console.error(err);
-    toast("Green Points is not available right now. Placing your order without it.");
-  }
- 
   const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
   const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
+  // what the student would pay after the promo code (Green Points are taken off this)
+  const afterPromo = total - (applied ? Math.round(total * applied.percent / 100) : 0);
+ 
+  // [GREEN] Ask if the student wants to use Green Points coins as a discount.
+  // The popup only opens when the student has coins. Closing it means no order is placed.
+  let wantCoins = 0;
+  if (askUseCoins && isValidStudentId(sid)) {
+    try {
+      const r = await askUseCoins(sid, afterPromo);
+      wantCoins = (r && r.coins) || 0;
+    } catch (err) {
+      if (err && err.message === "CANCELLED") return;
+      console.error(err);
+      toast("Green Points is not available right now. Placing your order without it.");
+    }
+  }
+  const rules = wantCoins > 0 ? await getGreenRules() : null;
  
   const btn = $("order-btn");
   btn.disabled = true;
   btn.textContent = "Placing...";
+  let coinsUsed = 0;
   try {
     const counterRef = doc(db, "counters", "orders");
     const orderRef = doc(collection(db, "orders"));
     const promoRef = applied ? doc(db, "promos", applied.code) : null;
+    const walletRef = wantCoins > 0 ? doc(db, "wallets", sid) : null;
     await runTransaction(db, async function (tx) {
+      coinsUsed = 0;
+      // all reads first
       const cs = await tx.get(counterRef);
       // NEW: check the promo again at the moment of ordering (staff may have turned it off)
       let promoSnap = null;
@@ -525,6 +543,9 @@ $("order-btn").addEventListener("click", async function () {
         promoSnap = await tx.get(promoRef);
         if (!promoSnap.exists() || !promoSnap.data().active) throw new Error("PROMO_INVALID");
       }
+      // [GREEN] read the wallet in the same transaction, so coins and order are saved together
+      const wSnap = walletRef ? await tx.get(walletRef) : null;
+ 
       const next = (cs.exists() ? cs.data().last : 0) + 1;
       const data = {
         token: next,
@@ -536,8 +557,7 @@ $("order-btn").addEventListener("click", async function () {
         createdAt: serverTimestamp(),
         cancelUntil: Timestamp.fromMillis(Date.now() + CANCEL_MINUTES * 60 * 1000)
       };
-      // [NEW] store the Green Points code on the order, only when the student added items
-      if (greenCode) data.greenCode = greenCode;
+      let payable = total;
       if (promoSnap) {
         const pct = promoSnap.data().percent;
         const amt = Math.round(total * pct / 100);
@@ -545,9 +565,40 @@ $("order-btn").addEventListener("click", async function () {
         data.promoCode = applied.code;
         data.promoPercent = pct;
         data.promoAmount = amt;
-        data.total = total - amt;
+        payable = total - amt;
         tx.update(promoRef, { used: (promoSnap.data().used || 0) + 1 });
       }
+      // [GREEN] coins used = the smaller of: what the student asked, the balance,
+      // the % limit and the price. The balance is checked again here, not trusted from the popup.
+      if (wSnap) {
+        const w = wSnap.exists() ? wSnap.data() : {};
+        const balance = w.balance || 0;
+        const use = Math.min(
+          wantCoins,
+          balance,
+          Math.floor(payable * rules.maxPct / 100),
+          Math.floor(payable / rules.coinTk)
+        );
+        if (use > 0) {
+          const off = use * rules.coinTk;
+          coinsUsed = use;
+          if (data.subtotal === undefined) data.subtotal = total;
+          data.coinsUsed = use;
+          data.coinDiscount = off;
+          payable -= off;
+          tx.set(walletRef, {
+            balance: balance - use,
+            issued: w.issued || 0,
+            redeemed: (w.redeemed || 0) + use
+          }, { merge: true });
+          tx.set(doc(collection(db, "wallets", sid, "history")), {
+            text: "Used on order (" + use + " coins)",
+            delta: -use,
+            at: serverTimestamp()
+          });
+        }
+      }
+      data.total = payable;
       tx.set(counterRef, { last: next });
       tx.set(orderRef, data);
     });
@@ -559,7 +610,7 @@ $("order-btn").addEventListener("click", async function () {
     drawMenu();
     updateCart();
     watch(orderRef.id);
-    toast("Order placed!");
+    toast(coinsUsed ? "Order placed! Green Points saved " + (coinsUsed * rules.coinTk) + " Tk." : "Order placed!");
   } catch (err) {
     if (err && err.message === "PROMO_INVALID") {
       clearPromo();

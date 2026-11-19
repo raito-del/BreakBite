@@ -116,17 +116,17 @@
     .hl-token { display: inline-block; min-width: 46px; text-align: center; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 10px; background: var(--accent); color: #fff; font-weight: 900; box-shadow: var(--shadow-small); }
     .hl-id { display: inline-block; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--t-yellow); color: var(--ink); font-weight: 900; letter-spacing: .3px; }
 
-    /* [NEW] green points: small line on tokens and completed rows */
+    /* green points: small line on tokens and completed rows */
     .gline { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--ink); background: #f3fbe8; border: 2px dashed #4c8c4a; border-radius: 9px; padding: 3px 8px; }
     .gline.pending { background: #fff7e0; border-color: var(--turmeric); }
 
-    /* [NEW] green points: Green Desk panel */
+    /* green points: Green Desk panel */
     .gcard { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 20px; }
     .gsub { background: #fff; border: 2px solid var(--ink); border-radius: 12px; box-shadow: var(--shadow-small); padding: 12px; margin-bottom: 10px; border-left: 8px solid var(--turmeric); animation: rise .4s ease backwards; }
     .gcheck { display: flex; gap: 8px; align-items: center; font-weight: 800; margin: 8px 0; }
     .gcheck input { width: 18px; height: 18px; accent-color: #4c8c4a; }
 
-    /* [NEW] green points: transparent glass record window */
+    /* green points: transparent glass record window */
     .g-overlay { position: fixed; inset: 0; background: rgba(59,35,20,.22); display: grid; place-items: center; padding: 16px; z-index: 30; }
     .g-overlay.hidden { display: none; }
     .g-sheet { width: min(560px, 100%); max-height: 90vh; overflow: auto; padding: 18px 20px; border: 2px solid rgba(59,35,20,.85); border-radius: 18px; box-shadow: 6px 6px 0 rgba(59,35,20,.85); background: rgba(255,255,255,.52); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); animation: rise .35s ease backwards; }
@@ -175,7 +175,6 @@
     <nav class="tabs" aria-label="Staff sections">
       <button class="tab active" data-tab="orders">Orders</button>
       <button class="tab" data-tab="menu">Menu</button>
-      <!-- [NEW] Green Desk, placed before Food Waste Saver -->
       <button class="tab" data-tab="green">Green Desk</button>
       <button class="tab" data-tab="waste">Food Waste Saver</button>
       <button class="tab" data-tab="promo">Promo Codes</button>
@@ -185,7 +184,7 @@
   </header>
 
   <main>
-    <!-- Orders -->
+    <!-- Orders (staff/orders.js) -->
     <section class="panel active" id="panel-orders">
       <h2>Orders</h2>
       <div class="stats">
@@ -240,7 +239,7 @@
       </div>
     </section>
 
-    <!-- Menu -->
+    <!-- Menu (staff/menu.js) -->
     <section class="panel" id="panel-menu">
       <h2>Menu</h2>
       <div class="card">
@@ -264,7 +263,7 @@
       </div>
     </section>
 
-    <!-- [NEW] Green Desk -->
+    <!-- Green Desk (staff/green.js) -->
     <section class="panel" id="panel-green">
       <h2>Green Desk</h2>
       <p class="muted">Green Points only. Food orders are received on the Orders page.</p>
@@ -307,7 +306,7 @@
       </div>
     </section>
 
-    <!-- Food Waste Saver -->
+    <!-- Food Waste Saver (staff/menu.js) -->
     <section class="panel" id="panel-waste">
       <h2>Food Waste Saver</h2>
       <div class="card">
@@ -324,7 +323,7 @@
       </div>
     </section>
 
-    <!-- Promo Codes -->
+    <!-- Promo Codes (staff/menu.js) -->
     <section class="panel" id="panel-promo">
       <h2>Promo Codes</h2>
       <div class="card">
@@ -343,7 +342,7 @@
       </div>
     </section>
 
-    <!-- Settings -->
+    <!-- Settings (staff/menu.js) -->
     <section class="panel" id="panel-settings">
       <h2>Settings</h2>
 
@@ -375,826 +374,27 @@
   </main>
 </div>
 
-<!-- Report detail popup -->
+<!-- Report detail popup (staff/orders.js) -->
 <div class="overlay hidden" id="overlay">
   <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
 </div>
 
-<!-- [NEW] Student green record (transparent glass) -->
+<!-- Student green record, transparent glass (staff/green.js) -->
 <div class="g-overlay hidden" id="green-overlay">
   <div class="g-sheet" id="green-sheet" role="dialog" aria-modal="true"></div>
 </div>
 
 <div id="toast" class="hidden"></div>
 
+<!-- One entry module loads all staff files together.
+     core.js comes first. Because they are all imported here, every feature
+     registers its login hook before the login check runs. -->
 <script type="module">
-import { db } from "./firebase.js";
-import {
-  collection, doc, addDoc, updateDoc, deleteDoc, setDoc, getDoc, getDocs,
-  onSnapshot, query, orderBy, limit, writeBatch, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-// shared base: login, tabs, toast, helpers, and the click/change dispatch
-import {
-  $, esc as escapeHtml, toast, todayKey, dayOf, timeText, itemsText, studentIdHtml,
-  onLogin, onAction, onClick, onChange, onEscape
-} from "./staff/core.js";
-// [NEW] Green Points approve / reject / tick functions
-import { approveSubmission, rejectSubmission, setChecked } from "./green-points/green.js";
-
-const STATUS_FLOW = ["Received", "Preparing", "Ready", "Done"];
-const NEXT_LABEL = { Received: "Start preparing", Preparing: "Mark ready", Ready: "Mark collected" };
-const DEFAULT_EAT_MIN = 5;
-
-let menu = [];
-let orders = [];
-let reports = [];       // saved daily reports, newest first
-let promos = [];
-let freshPromo = null;
-let poppedPromo = null;
-let greenSubs = [];     // [NEW] Green Points submissions (newest first)
-let wallets = {};       // [NEW] studentId -> wallet data
-
-function finalPrice(f) {
-  return Math.round(f.price * (100 - (f.discount || 0)) / 100);
-}
-
-// ---------- start the features after login (core calls this once) ----------
-onLogin(function () {
-  watchOrders();
-  watchMenu();
-  watchReports();
-  watchPromos();
-  watchGreen();          // [NEW]
-  loadPlannerSettings();
-});
-
-// ---------- clicks that are not data-act buttons ----------
-// (data-act buttons are registered with onAction below; core dispatches them)
-onClick(function (e) {
-  // [NEW] green record window: open from a ledger row, close with X or background
-  const gr = e.target.closest("[data-greport]");
-  if (gr) { openGreenRecord(gr.dataset.greport); return true; }
-  if (e.target.closest("[data-gclose]") || e.target === $("green-overlay")) { closeGreenRecord(); return true; }
-
-  if (e.target.closest("[data-close]") || e.target === $("overlay")) { closeReport(); return true; }
-  const rep = e.target.closest("[data-report]");
-  if (rep) { openReport(rep.dataset.report); return true; }
-  return false;
-});
-
-// ---------- data-act buttons ----------
-onAction("advance", function (id) { advanceOrder(id); });
-onAction("toggle", function (id) { toggleAvailable(id); });
-onAction("edit", function (id) { editFood(id); });
-onAction("delete", function (id) { deleteFood(id); });
-onAction("stopDiscount", function (id) { setDiscount(id, 0); });
-onAction("promoToggle", function (id) { togglePromo(id); });
-onAction("promoDelete", function (id) { deletePromo(id); });
-onAction("gApprove", function (id) { approveGreen(id); });   // [NEW]
-onAction("gReject", function (id) { rejectGreen(id); });     // [NEW]
-
-// [NEW] tick "I checked the items" (saved right away, so the approve button can be enabled)
-onChange(function (e) {
-  const c = e.target.closest("[data-gcheck]");
-  if (!c) return false;
-  setChecked(c.dataset.gcheck, c.checked).catch(function (err) {
-    toast("Could not save the tick.");
-    console.error(err);
-  });
-  return true;
-});
-
-// Escape closes the popups
-onEscape(function () { closeReport(); closeGreenRecord(); });
-
-// Enter / Space on a report card opens it
-document.addEventListener("keydown", function (e) {
-  if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-report]")) {
-    e.preventDefault();
-    openReport(e.target.dataset.report);
-  }
-});
-
-// ---------- orders ----------
-function watchOrders() {
-  onSnapshot(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50)),
-    function (snap) {
-      orders = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-      renderOrders();
-      renderGreen();          // [NEW] coins used today depends on orders
-    },
-    function (err) { toast("Could not load orders."); console.error(err); }
-  );
-}
-
-function setBar(id, pct) {
-  $(id).style.width = Math.max(0, Math.min(100, pct)) + "%";
-}
-
-// [NEW] small green line for an order: coins used, and the G-code status
-function greenLineHtml(o) {
-  const used = Number(o.coinsUsed) || 0;
-  if (!used && !o.greenCode) return "";
-  let add = "";
-  if (o.greenCode) {
-    const s = greenSubs.find(function (x) { return x.code === o.greenCode; });
-    if (!s) add = escapeHtml(o.greenCode);
-    else if (s.status === "Approved") add = escapeHtml(o.greenCode) + ": +" + s.coins + " added";
-    else if (s.status === "Rejected") add = escapeHtml(o.greenCode) + ": rejected";
-    else add = escapeHtml(o.greenCode) + ": +" + s.coins + " waiting";
-  }
-  const parts = [used ? "Used <b>" + used + "</b> Green coins" : "", add].filter(Boolean).join(" · ");
-  const cls = o.greenCode && greenSubs.some(function (x) { return x.code === o.greenCode && x.status === "Pending"; }) ? " pending" : "";
-  return '<div class="gline' + cls + '">Green Points · ' + parts + '</div>';
-}
-
-function renderOrders() {
-  // Cancelled orders are not active: they leave the board, queue and waiting time
-  const active = orders.filter(function (o) {
-    return o.status !== "Done" && o.status !== "Cancelled";
-  });
-  const queue = active.filter(function (o) { return o.status === "Received" || o.status === "Preparing"; }).length;
-  const ready = active.filter(function (o) { return o.status === "Ready"; }).length;
-  const wait = 3 + queue * 2;
-
-  $("queue-count").textContent = queue;
-  $("wait-time").textContent = wait + " min";
-  $("ready-count").textContent = ready;
-  $("wait-stat").classList.toggle("hot", queue >= 8);
-  setBar("queue-bar", queue * 10);
-  setBar("wait-bar", wait * 4);
-  setBar("ready-bar", active.length ? Math.round(ready / active.length * 100) : 0);
-
-  ["Received", "Preparing", "Ready"].forEach(function (s) {
-    const list = active.filter(function (o) { return o.status === s; });
-    $("cnt-" + s).textContent = list.length;
-    $("col-" + s).innerHTML = list.length
-      ? list.map(ticketHtml).join("")
-      : '<div class="empty">No ' + s.toLowerCase() + ' orders.</div>';
-  });
-
-  // Completed list shows Done and Cancelled orders, with the student ID on each row
-  const done = orders
-    .filter(function (o) { return o.status === "Done" || o.status === "Cancelled"; })
-    .slice(0, 10);
-  $("done-list").innerHTML = done.length
-    ? done.map(function (o) {
-        const tag = o.status === "Cancelled" ? ' <span class="tag red">Cancelled</span>' : "";
-        return '<div class="list-row">' +
-          '<span><span class="hl-token">#' + o.token + '</span>' + tag + ' ' +
-            '<span class="hl-id">Student ID: ' + escapeHtml(o.studentId || "not given") + '</span> ' +
-            escapeHtml(itemsText(o)) + greenLineHtml(o) + '</span>' +
-          '<span class="price">' + o.total + ' Tk <span class="muted" style="font-weight:600">· ' + timeText(o) + '</span></span>' +
-        '</div>';
-      }).join("")
-    : '<div class="empty">Nothing completed yet.</div>';
-}
-
-function ticketHtml(o) {
-  return '<div class="ticket ' + o.status + '">' +
-    '<div class="stub"><small>Token</small><b>' + o.token + '</b></div>' +
-    '<div class="body">' +
-      '<div>' + studentIdHtml(o) + '</div>' +
-      '<div class="items">' + escapeHtml(itemsText(o)) + '</div>' +
-      '<div class="meta">' + o.total + ' Tk, ordered at ' + timeText(o) + '</div>' +
-      greenLineHtml(o) +
-      '<button class="small" data-act="advance" data-id="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>' +
-    '</div></div>';
-}
-
-function advanceOrder(id) {
-  const o = orders.find(function (x) { return x.id === id; });
-  if (!o) return;
-  const next = STATUS_FLOW[STATUS_FLOW.indexOf(o.status) + 1];
-  if (!next) return;
-  updateDoc(doc(db, "orders", id), { status: next }).catch(function (err) {
-    toast("Could not update the order.");
-    console.error(err);
-  });
-}
-
-// ---------- end of day ----------
-$("eod-btn").addEventListener("click", endOfDay);
-
-async function endOfDay() {
-  let all;
-  try {
-    all = await getDocs(collection(db, "orders"));
-  } catch (err) {
-    toast("Could not read orders. Try again.");
-    console.error(err);
-    return;
-  }
-
-  if (all.empty) {
-    toast("No orders to close today.");
-    return;
-  }
-
-  const activeCount = all.docs.filter(function (d) {
-    const s = d.data().status;
-    return s !== "Done" && s !== "Cancelled";
-  }).length;
-  let msg = "Save today's report and remove all " + all.size + " orders? Token numbers will restart from 1.";
-  if (activeCount > 0) {
-    msg += "\n\n" + activeCount + " order(s) are still active and will also be removed.";
-  }
-  if (!confirm(msg)) return;
-  if (!confirm("This cannot be undone. Are you sure?")) return;
-
-  // Build the summary before anything is deleted.
-  // Cancelled orders are not counted in sales, items or the order total.
-  let totalSales = 0;
-  let countedOrders = 0;
-  const itemCount = {};      // name -> qty (used by the Top items list)
-  const itemDetail = {};     // name -> {qty, amount} (used by the detail popup)
-  all.docs.forEach(function (d) {
-    const o = d.data();
-    if (o.status === "Cancelled") return;
-    countedOrders++;
-    totalSales += Number(o.total) || 0;
-    (o.items || []).forEach(function (i) {
-      const qty = Number(i.qty) || 0;
-      const amount = i.price !== undefined ? qty * (Number(i.price) || 0) : null;
-      itemCount[i.name] = (itemCount[i.name] || 0) + qty;
-      if (!itemDetail[i.name]) itemDetail[i.name] = { name: i.name, qty: 0, amount: 0, priced: true };
-      itemDetail[i.name].qty += qty;
-      if (amount === null) itemDetail[i.name].priced = false;
-      else itemDetail[i.name].amount += amount;
-    });
-  });
-  const itemDetails = Object.values(itemDetail)
-    .map(function (x) { return { name: x.name, qty: x.qty, amount: x.priced ? x.amount : null }; })
-    .sort(function (a, b) { return b.qty - a.qty; });
-
-  const btn = $("eod-btn");
-  btn.disabled = true;
-  btn.textContent = "Closing the day...";
-
-  try {
-    // 1. Save the report first. If this fails, nothing is deleted.
-    await addDoc(collection(db, "daily_reports"), {
-      date: todayKey(),
-      totalOrders: countedOrders,
-      totalSales: totalSales,
-      items: itemCount,
-      itemDetails: itemDetails,
-      activeAtClose: activeCount,
-      createdAt: serverTimestamp()
-    });
-
-    // 2. Delete all orders in batches (Firestore allows up to 500 per batch)
-    const docs = all.docs;
-    for (let i = 0; i < docs.length; i += 400) {
-      const batch = writeBatch(db);
-      docs.slice(i, i + 400).forEach(function (d) { batch.delete(d.ref); });
-      await batch.commit();
-    }
-
-    // 3. Restart token numbers from 1
-    await setDoc(doc(db, "counters", "orders"), { last: 0 });
-
-    toast("Day closed. Report saved and tokens restart from 1.");
-  } catch (err) {
-    toast("Could not close the day. Nothing was deleted if the report failed. Try again.");
-    console.error(err);
-  }
-
-  btn.disabled = false;
-  btn.textContent = "End of day: save report and reset tokens";
-}
-
-// ---------- past reports ----------
-function watchReports() {
-  onSnapshot(query(collection(db, "daily_reports"), orderBy("createdAt", "desc"), limit(30)),
-    function (snap) {
-      reports = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-      renderReports();
-    },
-    function (err) { console.error(err); }
-  );
-}
-
-function namedItems(r) {
-  // Reports saved before the detail update only have the items map (qty only)
-  if (Array.isArray(r.itemDetails) && r.itemDetails.length) return r.itemDetails;
-  return Object.keys(r.items || {}).map(function (name) {
-    return { name: name, qty: r.items[name], amount: null };
-  }).sort(function (a, b) { return b.qty - a.qty; });
-}
-
-function renderReports() {
-  if (!reports.length) {
-    $("sum").innerHTML = "";
-    $("reports-list").innerHTML = '<div class="empty">No reports yet. A report is saved each time you press End of day.</div>';
-    return;
-  }
-
-  // Summary across all saved days
-  const sales = reports.reduce(function (a, r) { return a + (Number(r.totalSales) || 0); }, 0);
-  const orderTotal = reports.reduce(function (a, r) { return a + (Number(r.totalOrders) || 0); }, 0);
-  const totals = {};
-  reports.forEach(function (r) {
-    namedItems(r).forEach(function (i) {
-      if (!totals[i.name]) totals[i.name] = { name: i.name, qty: 0, days: 0 };
-      totals[i.name].qty += Number(i.qty) || 0;
-      totals[i.name].days += 1;
-    });
-  });
-  const ranked = Object.values(totals).sort(function (a, b) { return b.qty - a.qty; });
-  const best = ranked[0];
-  const next3 = ranked.slice(1, 4).map(function (x) { return x.name; }).join(", ") || "None";
-  $("sum").innerHTML =
-    '<div class="tile"><span>Days recorded</span><b>' + reports.length + '</b><small>' + orderTotal + ' orders in total</small></div>' +
-    '<div class="tile top"><span>Top item overall</span><b>' + escapeHtml(best ? best.name : "None") + '</b><small>' +
-      (best ? best.qty + ' sold across ' + best.days + ' day(s)' : '') + '</small></div>' +
-    '<div class="tile"><span>Total sales</span><b>' + sales + ' Tk</b><small>all saved days</small></div>' +
-    '<div class="tile"><span>Next best sellers</span><b style="font-size:15px;line-height:1.3">' + escapeHtml(next3) + '</b></div>';
-
-  $("reports-list").innerHTML = reports.map(function (r) {
-    const top = namedItems(r).slice(0, 5);
-    const max = top.length ? Number(top[0].qty) || 1 : 1;
-    const bars = top.map(function (i) {
-      return '<div class="ti"><div class="nm">' + escapeHtml(i.name) + '</div>' +
-        '<div class="trow"><div class="track"><i style="width:' + Math.round((Number(i.qty) || 0) / max * 100) + '%"></i></div>' +
-        '<b>x' + i.qty + '</b></div></div>';
-    }).join("") || '<div class="muted">No items recorded.</div>';
-    return '<div class="report" data-report="' + r.id + '" tabindex="0" role="button" aria-label="Details for ' + escapeHtml(r.date || "") + '">' +
-      '<div class="rh"><span class="date">' + escapeHtml(r.date || "") + '</span><span class="sales">' + (r.totalSales || 0) + ' Tk</span></div>' +
-      '<div class="rmeta">' + (r.totalOrders || 0) + ' orders</div>' +
-      bars +
-      '<span class="go">View full details &rarr;</span>' +
-    '</div>';
-  }).join("");
-}
-
-function openReport(id) {
-  const r = reports.find(function (x) { return x.id === id; });
-  if (!r) return;
-  const rows = namedItems(r).slice().sort(function (a, b) {
-    return (Number(b.amount) || 0) - (Number(a.amount) || 0) || b.qty - a.qty;
-  });
-  const soldQty = rows.reduce(function (a, i) { return a + (Number(i.qty) || 0); }, 0);
-  const hasAmounts = rows.some(function (i) { return i.amount !== null && i.amount !== undefined; });
-  const sales = Number(r.totalSales) || 0;
-  const topName = rows.length ? rows[0].name : "None";
-
-  $("modal").innerHTML =
-    '<div class="mh">' +
-      '<div><div class="eyebrow">Daily detail</div><h2>' + escapeHtml(r.date || "") + '</h2></div>' +
-      '<button class="x" data-close aria-label="Close">&times;</button>' +
-    '</div>' +
-    '<div class="mstats">' +
-      '<div><span>Orders</span><b>' + (r.totalOrders || 0) + '</b></div>' +
-      '<div><span>Sales</span><b>' + sales + ' Tk</b></div>' +
-      '<div><span>Items sold</span><b>' + soldQty + '</b></div>' +
-      '<div><span>Top item</span><b>' + escapeHtml(topName) + '</b></div>' +
-    '</div>' +
-    '<table class="dt">' +
-      '<thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Amount</th><th>Share</th></tr></thead>' +
-      '<tbody>' + rows.map(function (i) {
-        const hasAmt = i.amount !== null && i.amount !== undefined;
-        const pct = hasAmt && sales ? Math.round(i.amount / sales * 100) : 0;
-        return '<tr>' +
-          '<td>' + escapeHtml(i.name) + '</td>' +
-          '<td class="r">' + i.qty + '</td>' +
-          '<td class="r">' + (hasAmt ? i.amount + ' Tk' : '-') + '</td>' +
-          '<td>' + (hasAmt ? '<div class="share"><i style="width:' + pct + '%"></i></div>' : '') + '</td>' +
-        '</tr>';
-      }).join("") + '</tbody>' +
-      '<tfoot><tr><td>Total</td><td class="r">' + soldQty + '</td><td class="r">' + sales + ' Tk</td><td></td></tr></tfoot>' +
-    '</table>' +
-    (hasAmounts ? '' : '<p class="note-small">Amounts per item were not saved for this report. Only quantities are shown.</p>');
-
-  $("overlay").classList.remove("hidden");
-  const closeBtn = $("modal").querySelector("[data-close]");
-  if (closeBtn) closeBtn.focus();
-}
-
-function closeReport() {
-  $("overlay").classList.add("hidden");
-}
-
-// ---------- menu ----------
-function watchMenu() {
-  onSnapshot(query(collection(db, "menu"), orderBy("order")),
-    function (snap) {
-      menu = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-      renderMenu();
-      renderWaste();
-    },
-    function (err) { toast("Could not load the menu."); console.error(err); }
-  );
-}
-
-function renderMenu() {
-  const rows = menu.map(function (f) {
-    const price = f.discount > 0
-      ? '<s class="off-text">' + f.price + '</s> <b>' + finalPrice(f) + ' Tk</b> <span class="badge">' + f.discount + '% off</span>'
-      : f.price + ' Tk';
-    const eat = (f.minutes || DEFAULT_EAT_MIN) + ' min';
-    return '<tr>' +
-      '<td data-label="Item">' + escapeHtml(f.name) + '</td>' +
-      '<td data-label="Price">' + price + '</td>' +
-      '<td data-label="Eat time">' + eat + '</td>' +
-      '<td data-label="Status"><span class="badge ' + (f.available ? "green" : "off") + '">' + (f.available ? "Available" : "Sold out") + '</span></td>' +
-      '<td class="actions">' +
-        '<button class="ghost small" data-act="toggle" data-id="' + f.id + '">' + (f.available ? "Mark sold out" : "Mark available") + '</button>' +
-        '<button class="ghost small" data-act="edit" data-id="' + f.id + '">Edit</button>' +
-        '<button class="danger small" data-act="delete" data-id="' + f.id + '">Delete</button>' +
-      '</td></tr>';
-  });
-  $("menu-body").innerHTML = rows.length
-    ? rows.join("")
-    : '<tr><td colspan="5" class="empty">No items yet. Add one below.</td></tr>';
-}
-
-async function addFood() {
-  const name = $("food-name").value.trim();
-  const price = parseInt($("food-price").value, 10);
-  const minutes = parseInt($("food-minutes").value, 10);
-  if (!name || isNaN(price) || price < 0) {
-    toast("Enter a food name and a valid price.");
-    return;
-  }
-  try {
-    await addDoc(collection(db, "menu"), {
-      name: name,
-      price: price,
-      minutes: isNaN(minutes) || minutes < 1 ? DEFAULT_EAT_MIN : minutes,
-      available: true,
-      discount: 0,
-      order: Date.now()
-    });
-    $("food-name").value = "";
-    $("food-price").value = "";
-    $("food-minutes").value = "";
-    toast(name + " added to the menu.");
-  } catch (err) {
-    toast("Could not add the item.");
-    console.error(err);
-  }
-}
-
-function toggleAvailable(id) {
-  const f = menu.find(function (x) { return x.id === id; });
-  if (!f) return;
-  updateDoc(doc(db, "menu", id), { available: !f.available });
-}
-
-function editFood(id) {
-  const f = menu.find(function (x) { return x.id === id; });
-  if (!f) return;
-  const name = prompt("Food name:", f.name);
-  if (name === null) return;
-  const priceText = prompt("Price (Tk):", f.price);
-  if (priceText === null) return;
-  const minText = prompt("Eat time (minutes):", f.minutes || DEFAULT_EAT_MIN);
-  if (minText === null) return;
-  const price = parseInt(priceText, 10);
-  const minutes = parseInt(minText, 10);
-  if (!name.trim() || isNaN(price) || price < 0 || isNaN(minutes) || minutes < 1) {
-    toast("Name, price or eat time is not valid.");
-    return;
-  }
-  updateDoc(doc(db, "menu", id), { name: name.trim(), price: price, minutes: minutes });
-  toast("Menu item updated.");
-}
-
-function deleteFood(id) {
-  const f = menu.find(function (x) { return x.id === id; });
-  if (!f) return;
-  if (!confirm("Remove " + f.name + " from the menu?")) return;
-  deleteDoc(doc(db, "menu", id));
-}
-
-$("add-food-btn").addEventListener("click", addFood);
-
-// ---------- food waste saver ----------
-function renderWaste() {
-  const available = menu.filter(function (f) { return f.available; });
-  $("waste-food").innerHTML = available.map(function (f) {
-    return '<option value="' + f.id + '">' + escapeHtml(f.name) + ' (' + f.price + ' Tk)</option>';
-  }).join("");
-
-  const discounted = menu.filter(function (f) { return f.discount > 0; });
-  $("waste-list").innerHTML = discounted.length
-    ? discounted.map(function (f) {
-        return '<div class="list-row">' +
-          '<span><b>' + escapeHtml(f.name) + '</b>: ' + f.discount + '% off, now ' + finalPrice(f) + ' Tk</span>' +
-          '<button class="ghost small" data-act="stopDiscount" data-id="' + f.id + '">Stop discount</button>' +
-        '</div>';
-      }).join("")
-    : '<div class="empty">No discounts running. Pick a food above to start one.</div>';
-}
-
-function setDiscount(id, percent) {
-  updateDoc(doc(db, "menu", id), { discount: percent }).catch(function (err) {
-    toast("Could not save the discount.");
-    console.error(err);
-  });
-}
-
-$("waste-start").addEventListener("click", function () {
-  const id = $("waste-food").value;
-  const percent = parseInt($("waste-percent").value, 10);
-  if (!id) { toast("Choose a food item first."); return; }
-  if (isNaN(percent) || percent < 5 || percent > 90) {
-    toast("Discount must be between 5 and 90.");
-    return;
-  }
-  setDiscount(id, percent);
-  toast("Discount started.");
-});
-
-// ---------- promo codes ----------
-// Each code is one document in "promos", and the document ID is the code itself.
-// Fields: code, percent, active, used, createdAt  (the student page reads these)
-function watchPromos() {
-  onSnapshot(collection(db, "promos"),
-    function (snap) {
-      promos = snap.docs
-        .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-        .sort(function (a, b) {
-          const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : Date.now();
-          const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : Date.now();
-          return tb - ta;
-        });
-      renderPromos();
-    },
-    function (err) { toast("Could not load promo codes."); console.error(err); }
-  );
-}
-
-function renderPromos() {
-  $("promo-list").innerHTML = promos.length
-    ? promos.map(function (p) {
-        const used = p.used || 0;
-        const fresh = p.id === freshPromo ? " fresh" : "";
-        const pop = p.id === poppedPromo ? " pop" : "";
-        return '<div class="list-row' + fresh + '">' +
-          '<span><b>' + escapeHtml(p.id) + '</b>: ' + p.percent + '% off, used ' + used + (used === 1 ? ' time' : ' times') + ' ' +
-            '<span class="tag ' + (p.active ? "on" : "off") + pop + '">' + (p.active ? "Active" : "Off") + '</span></span>' +
-          '<span class="staff-actions" style="margin:0">' +
-            '<button class="ghost small" data-act="promoToggle" data-id="' + escapeHtml(p.id) + '">' + (p.active ? "Turn off" : "Turn on") + '</button>' +
-            '<button class="danger small" data-act="promoDelete" data-id="' + escapeHtml(p.id) + '">Delete</button>' +
-          '</span>' +
-        '</div>';
-      }).join("")
-    : '<div class="empty">No promo codes yet. Create one above.</div>';
-  freshPromo = null;
-  poppedPromo = null;
-}
-
-$("promo-add").addEventListener("click", async function () {
-  const btn = this;
-  const msg = $("promo-msg");
-  msg.textContent = "";
-  const code = $("promo-code").value.trim().toUpperCase();
-  const percent = parseInt($("promo-percent").value, 10);
-
-  if (!/^[A-Z0-9]{3,12}$/.test(code)) {
-    msg.textContent = "Code must be 3 to 12 letters or numbers, no spaces.";
-    return;
-  }
-  if (isNaN(percent) || percent < 5 || percent > 90) {
-    msg.textContent = "Discount must be between 5 and 90.";
-    return;
-  }
-
-  btn.classList.add("loading");
-  try {
-    const ref = doc(db, "promos", code);
-    const exists = await getDoc(ref);
-    if (exists.exists()) {
-      msg.textContent = "This code already exists. Turn it off or delete it first.";
-      btn.classList.remove("loading");
-      return;
-    }
-    await setDoc(ref, {
-      code: code,
-      percent: percent,
-      active: true,
-      used: 0,
-      createdAt: serverTimestamp()
-    });
-    freshPromo = code;
-    $("promo-code").value = "";
-    $("promo-percent").value = "";
-    toast("Promo code " + code + " created.");
-  } catch (err) {
-    msg.textContent = "Could not create the code. Try again.";
-    console.error(err);
-  }
-  btn.classList.remove("loading");
-});
-
-function togglePromo(id) {
-  const p = promos.find(function (x) { return x.id === id; });
-  if (!p) return;
-  poppedPromo = id;
-  updateDoc(doc(db, "promos", id), { active: !p.active }).catch(function (err) {
-    toast("Could not update the promo code.");
-    console.error(err);
-  });
-}
-
-function deletePromo(id) {
-  if (!confirm("Delete promo code " + id + "? Students will no longer be able to use it.")) return;
-  deleteDoc(doc(db, "promos", id)).then(function () {
-    toast("Promo code deleted.");
-  }).catch(function (err) {
-    toast("Could not delete the promo code.");
-    console.error(err);
-  });
-}
-
-// ---------- [NEW] green desk ----------
-function watchGreen() {
-  onSnapshot(query(collection(db, "greenSubmissions"), orderBy("createdAt", "desc"), limit(100)),
-    function (snap) {
-      greenSubs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-      renderGreen();
-      renderOrders();         // token green lines depend on submission status
-    },
-    function (err) { toast("Could not load the Green Desk."); console.error(err); }
-  );
-  onSnapshot(collection(db, "wallets"),
-    function (snap) {
-      wallets = {};
-      snap.docs.forEach(function (d) { wallets[d.id] = d.data(); });
-      renderGreen();
-    },
-    function (err) { console.error(err); }
-  );
-}
-
-function renderGreen() {
-  const today = todayKey();
-  const pend = greenSubs.filter(function (s) { return s.status === "Pending"; });
-
-  $("g-pending").textContent = pend.length;
-  $("g-issued").textContent = greenSubs
-    .filter(function (s) { return s.status === "Approved" && s.day === today; })
-    .reduce(function (a, s) { return a + (Number(s.coins) || 0); }, 0);
-  $("g-used").textContent = orders
-    .filter(function (o) { return dayOf(o) === today; })
-    .reduce(function (a, o) { return a + (Number(o.coinsUsed) || 0); }, 0);
-
-  $("g-desk").innerHTML = pend.length
-    ? pend.map(function (s) {
-        return '<div class="gsub">' +
-          '<div class="list-row" style="border:0;padding:0"><span><b>' + escapeHtml(s.code) + '</b> · Student <b>' + escapeHtml(s.sid) + '</b></span>' +
-          '<span class="count">' + (s.coins || 0) + ' coins</span></div>' +
-          '<div class="muted" style="margin:6px 0">' + (s.items || []).map(function (i) {
-            return i.qty + ' × ' + escapeHtml(i.name);
-          }).join(', ') + '</div>' +
-          '<label class="gcheck"><input type="checkbox" data-gcheck="' + escapeHtml(s.id) + '"' + (s.checked ? ' checked' : '') + '> I checked the items</label>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-            '<button class="small" data-act="gApprove" data-id="' + escapeHtml(s.id) + '"' + (s.checked ? '' : ' disabled') + '>Approve</button>' +
-            '<button class="ghost small" data-act="gReject" data-id="' + escapeHtml(s.id) + '">Reject</button>' +
-          '</div></div>';
-      }).join("")
-    : '<div class="empty">No pending submissions.</div>';
-
-  const ids = Object.keys(wallets);
-  $("g-ledger").innerHTML = ids.length
-    ? ids.map(function (id) {
-        const w = wallets[id] || {};
-        const waiting = pend.filter(function (s) { return s.sid === id; })
-          .reduce(function (a, s) { return a + (Number(s.coins) || 0); }, 0);
-        return '<tr class="click" data-greport="' + escapeHtml(id) + '">' +
-          '<td>' + escapeHtml(id) + '</td>' +
-          '<td>' + (w.balance || 0) + '</td>' +
-          '<td>' + (w.issued || 0) + '</td>' +
-          '<td>' + (w.redeemed || 0) + '</td>' +
-          '<td>' + (waiting ? '+' + waiting : '0') + '</td></tr>';
-      }).join("")
-    : '<tr><td colspan="5" class="empty">No wallets yet.</td></tr>';
-
-  const log = greenSubs.filter(function (s) { return s.status !== "Pending"; }).slice(0, 8);
-  $("g-log").innerHTML = log.length
-    ? log.map(function (s) {
-        return '<div class="list-row"><span><b>' + escapeHtml(s.code) + '</b> · ' + escapeHtml(s.sid) +
-          ' · <span class="badge ' + (s.status === "Approved" ? "green" : "off") + '">' + s.status + '</span></span>' +
-          '<span class="price">' + (s.status === "Approved" ? "+" + (s.coins || 0) : "0") + '</span></div>';
-      }).join("")
-    : 'Nothing yet.';
-}
-
-async function approveGreen(id) {
-  try {
-    const coins = await approveSubmission(id);
-    toast(coins + " coins added.");
-  } catch (err) {
-    const msgs = {
-      NOT_CHECKED: 'Tick "I checked the items" first.',
-      ALREADY_DECIDED: "This submission was already decided.",
-      NOT_FOUND: "Submission not found."
-    };
-    toast(msgs[err.message] || "Could not approve. Try again.");
-    console.error(err);
-  }
-}
-
-async function rejectGreen(id) {
-  try {
-    await rejectSubmission(id);
-    toast("Submission rejected.");
-  } catch (err) {
-    const msgs = {
-      ALREADY_DECIDED: "This submission was already decided.",
-      NOT_FOUND: "Submission not found."
-    };
-    toast(msgs[err.message] || "Could not reject. Try again.");
-    console.error(err);
-  }
-}
-
-async function openGreenRecord(sid) {
-  const w = wallets[sid] || { balance: 0, issued: 0, redeemed: 0 };
-  const subs = greenSubs.filter(function (s) { return s.sid === sid; });
-  $("green-sheet").innerHTML =
-    '<div class="g-head">' +
-      '<div><div class="eyebrow">Full record</div><h2>Student ' + escapeHtml(sid) + '</h2></div>' +
-      '<button class="x" data-gclose aria-label="Close">&times;</button>' +
-    '</div>' +
-    '<div class="g-stats">' +
-      '<div>Balance<b>' + (w.balance || 0) + '</b></div>' +
-      '<div>Earned<b>' + (w.issued || 0) + '</b></div>' +
-      '<div>Used on orders<b>' + (w.redeemed || 0) + '</b></div>' +
-    '</div>' +
-    '<h3>Coin history</h3>' +
-    '<div class="g-scroll" id="green-hist">Loading...</div>' +
-    '<h3 style="margin-top:12px">Submissions</h3>' +
-    '<div class="g-scroll">' + (subs.length
-      ? subs.map(function (s) {
-          return '<div class="list-row"><span><b>' + escapeHtml(s.code) + '</b> · ' + escapeHtml(s.day || "") + ' ' + escapeHtml(s.at || "") +
-            '<div class="hint">' + (s.items || []).map(function (i) { return i.qty + ' × ' + escapeHtml(i.name); }).join(', ') + '</div></span>' +
-            '<span class="badge ' + (s.status === "Approved" ? "green" : "off") + '">' + s.status + '</span></div>';
-        }).join("")
-      : '<div class="muted">No submissions yet.</div>') + '</div>';
-  $("green-overlay").classList.remove("hidden");
-
-  try {
-    const snap = await getDocs(query(collection(db, "wallets", sid, "history"), orderBy("at", "desc"), limit(50)));
-    $("green-hist").innerHTML = snap.empty
-      ? '<div class="muted">No history yet.</div>'
-      : snap.docs.map(function (d) {
-          const h = d.data();
-          const delta = Number(h.delta) || 0;
-          return '<div class="list-row"><span>' + escapeHtml(h.text || "") + '</span>' +
-            '<b class="' + (delta > 0 ? "green" : "") + '">' + (delta > 0 ? "+" : "") + delta + '</b></div>';
-        }).join("");
-  } catch (err) {
-    $("green-hist").innerHTML = '<div class="muted">Could not load the history.</div>';
-    console.error(err);
-  }
-}
-
-function closeGreenRecord() {
-  $("green-overlay").classList.add("hidden");
-}
-
-// ---------- planner settings ----------
-const PLANNER_DEFAULTS = { minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5 };
-
-async function loadPlannerSettings() {
-  try {
-    const snap = await getDoc(doc(db, "settings", "planner"));
-    const s = Object.assign({}, PLANNER_DEFAULTS, snap.exists() ? snap.data() : {});
-    $("pl-min").value = s.minBreak;
-    $("pl-max").value = s.maxBreak;
-    $("pl-step").value = s.step;
-    $("pl-default").value = s.defaultEat;
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-$("planner-save").addEventListener("click", async function () {
-  const minBreak = parseInt($("pl-min").value, 10);
-  const maxBreak = parseInt($("pl-max").value, 10);
-  const step = parseInt($("pl-step").value, 10);
-  const defaultEat = parseInt($("pl-default").value, 10);
-  if (isNaN(minBreak) || isNaN(maxBreak) || minBreak < 1 || maxBreak <= minBreak) {
-    toast("Longest break must be bigger than shortest break.");
-    return;
-  }
-  if (isNaN(step) || step < 1 || isNaN(defaultEat) || defaultEat < 1) {
-    toast("Step and default eat time must be at least 1.");
-    return;
-  }
-  try {
-    await setDoc(doc(db, "settings", "planner"), {
-      minBreak: minBreak, maxBreak: maxBreak, step: step, defaultEat: defaultEat
-    });
-    toast("Planner settings saved.");
-  } catch (err) {
-    toast("Could not save planner settings.");
-    console.error(err);
-  }
-});
+import "./staff/core.js";     // login, tabs, toast, click dispatch
+import "./staff/orders.js";   // Orders, Completed, End of day, Past reports
+import "./staff/menu.js";     // Menu, Food Waste Saver, Promo Codes, Settings
+import "./staff/green.js";    // Green Desk
 </script>
+
 </body>
 </html>
