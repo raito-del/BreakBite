@@ -116,6 +116,27 @@
     .hl-token { display: inline-block; min-width: 46px; text-align: center; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 10px; background: var(--accent); color: #fff; font-weight: 900; box-shadow: var(--shadow-small); }
     .hl-id { display: inline-block; padding: 2px 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--t-yellow); color: var(--ink); font-weight: 900; letter-spacing: .3px; }
 
+    /* [NEW] green points: small line on tokens and completed rows */
+    .gline { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--ink); background: #f3fbe8; border: 2px dashed #4c8c4a; border-radius: 9px; padding: 3px 8px; }
+    .gline.pending { background: #fff7e0; border-color: var(--turmeric); }
+
+    /* [NEW] green points: Green Desk panel */
+    .gcard { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 20px; }
+    .gsub { background: #fff; border: 2px solid var(--ink); border-radius: 12px; box-shadow: var(--shadow-small); padding: 12px; margin-bottom: 10px; border-left: 8px solid var(--turmeric); animation: rise .4s ease backwards; }
+    .gcheck { display: flex; gap: 8px; align-items: center; font-weight: 800; margin: 8px 0; }
+    .gcheck input { width: 18px; height: 18px; accent-color: #4c8c4a; }
+
+    /* [NEW] green points: transparent glass record window */
+    .g-overlay { position: fixed; inset: 0; background: rgba(59,35,20,.22); display: grid; place-items: center; padding: 16px; z-index: 30; }
+    .g-overlay.hidden { display: none; }
+    .g-sheet { width: min(560px, 100%); max-height: 90vh; overflow: auto; padding: 18px 20px; border: 2px solid rgba(59,35,20,.85); border-radius: 18px; box-shadow: 6px 6px 0 rgba(59,35,20,.85); background: rgba(255,255,255,.52); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); animation: rise .35s ease backwards; }
+    .g-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .g-head h2 { font-size: 22px; margin: 2px 0 0; }
+    .g-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+    .g-stats div { background: rgba(255,255,255,.8); border: 2px solid var(--ink); border-radius: 12px; padding: 8px; text-align: center; font-size: 12px; color: var(--ink-soft); font-weight: 800; }
+    .g-stats b { display: block; font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .g-scroll { max-height: 36vh; overflow: auto; padding-right: 4px; }
+
     @media (max-width: 700px) {
       .stats, .board { grid-template-columns: 1fr; }
       .sum, .mstats { grid-template-columns: repeat(2, 1fr); }
@@ -154,6 +175,8 @@
     <nav class="tabs" aria-label="Staff sections">
       <button class="tab active" data-tab="orders">Orders</button>
       <button class="tab" data-tab="menu">Menu</button>
+      <!-- [NEW] Green Desk, placed before Food Waste Saver -->
+      <button class="tab" data-tab="green">Green Desk</button>
       <button class="tab" data-tab="waste">Food Waste Saver</button>
       <button class="tab" data-tab="promo">Promo Codes</button>
       <button class="tab" data-tab="settings">Settings</button>
@@ -241,6 +264,49 @@
       </div>
     </section>
 
+    <!-- [NEW] Green Desk -->
+    <section class="panel" id="panel-green">
+      <h2>Green Desk</h2>
+      <p class="muted">Green Points only. Food orders are received on the Orders page.</p>
+
+      <div class="stats">
+        <div class="stat s-orange">
+          <div class="stat-top"><span class="muted">Waiting to check</span><span class="chip c-orange">P</span></div>
+          <div class="num" id="g-pending">0</div>
+        </div>
+        <div class="stat s-green">
+          <div class="stat-top"><span class="muted">Coins issued today</span><span class="chip c-green">+</span></div>
+          <div class="num" id="g-issued">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top"><span class="muted">Coins used today</span><span class="chip c-yellow">−</span></div>
+          <div class="num" id="g-used">0</div>
+        </div>
+      </div>
+
+      <div class="gcard">
+        <h3>Check, then approve</h3>
+        <p class="muted">Tick "I checked the items" first. Coins are added only on approval.</p>
+        <div id="g-desk"></div>
+      </div>
+
+      <div class="gcard">
+        <h3>Coin ledger</h3>
+        <p class="hint">Tap a student to see the full record.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Student ID</th><th>Balance</th><th>Earned</th><th>Used on orders</th><th>Waiting</th></tr></thead>
+            <tbody id="g-ledger"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="gcard">
+        <h3>Recent decisions</h3>
+        <div id="g-log" class="muted">Nothing yet.</div>
+      </div>
+    </section>
+
     <!-- Food Waste Saver -->
     <section class="panel" id="panel-waste">
       <h2>Food Waste Saver</h2>
@@ -314,17 +380,26 @@
   <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
 </div>
 
+<!-- [NEW] Student green record (transparent glass) -->
+<div class="g-overlay hidden" id="green-overlay">
+  <div class="g-sheet" id="green-sheet" role="dialog" aria-modal="true"></div>
+</div>
+
 <div id="toast" class="hidden"></div>
 
 <script type="module">
-import { db, auth } from "./firebase.js";
+import { db } from "./firebase.js";
 import {
   collection, doc, addDoc, updateDoc, deleteDoc, setDoc, getDoc, getDocs,
   onSnapshot, query, orderBy, limit, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// shared base: login, tabs, toast, helpers, and the click/change dispatch
 import {
-  signInWithEmailAndPassword, signOut, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  $, esc as escapeHtml, toast, todayKey, dayOf, timeText, itemsText, studentIdHtml,
+  onLogin, onAction, onClick, onChange, onEscape
+} from "./staff/core.js";
+// [NEW] Green Points approve / reject / tick functions
+import { approveSubmission, rejectSubmission, setChecked } from "./green-points/green.js";
 
 const STATUS_FLOW = ["Received", "Preparing", "Ready", "Done"];
 const NEXT_LABEL = { Received: "Start preparing", Preparing: "Mark ready", Ready: "Mark collected" };
@@ -333,115 +408,67 @@ const DEFAULT_EAT_MIN = 5;
 let menu = [];
 let orders = [];
 let reports = [];       // saved daily reports, newest first
-let started = false;
 let promos = [];
 let freshPromo = null;
 let poppedPromo = null;
-
-const $ = function (id) { return document.getElementById(id); };
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, function (c) {
-    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-  });
-}
-
-function toast(msg) {
-  const t = $("toast");
-  t.textContent = msg;
-  t.classList.remove("hidden");
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(function () { t.classList.add("hidden"); }, 2500);
-}
+let greenSubs = [];     // [NEW] Green Points submissions (newest first)
+let wallets = {};       // [NEW] studentId -> wallet data
 
 function finalPrice(f) {
   return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
 
-function itemsText(o) {
-  return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
-}
-
-function timeText(o) {
-  const d = o.createdAt && o.createdAt.toDate ? o.createdAt.toDate() : new Date();
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-// Old orders (placed before the ID was added) show "not given".
-function studentIdHtml(o) {
-  return '<span class="badge">Student ID: ' + escapeHtml(o.studentId || "not given") + '</span>';
-}
-
-function todayKey() {
-  return new Date().toLocaleDateString("en-CA");
-}
-
-// ---------- login ----------
-onAuthStateChanged(auth, function (user) {
-  if (user) {
-    $("login-screen").classList.add("hidden");
-    $("app").classList.remove("hidden");
-    if (!started) {
-      started = true;
-      watchOrders();
-      watchMenu();
-      watchReports();
-      watchPromos();
-      loadPlannerSettings();
-    }
-  } else {
-    $("login-screen").classList.remove("hidden");
-    $("app").classList.add("hidden");
-  }
+// ---------- start the features after login (core calls this once) ----------
+onLogin(function () {
+  watchOrders();
+  watchMenu();
+  watchReports();
+  watchPromos();
+  watchGreen();          // [NEW]
+  loadPlannerSettings();
 });
 
-$("login-form").addEventListener("submit", async function (e) {
-  e.preventDefault();
-  $("login-error").textContent = "";
-  try {
-    await signInWithEmailAndPassword(auth, $("username").value.trim(), $("password").value);
-    $("password").value = "";
-  } catch (err) {
-    $("login-error").textContent = "Wrong email or password. Try again.";
-    console.error(err);
-  }
-});
+// ---------- clicks that are not data-act buttons ----------
+// (data-act buttons are registered with onAction below; core dispatches them)
+onClick(function (e) {
+  // [NEW] green record window: open from a ledger row, close with X or background
+  const gr = e.target.closest("[data-greport]");
+  if (gr) { openGreenRecord(gr.dataset.greport); return true; }
+  if (e.target.closest("[data-gclose]") || e.target === $("green-overlay")) { closeGreenRecord(); return true; }
 
-$("logout-btn").addEventListener("click", function () { signOut(auth); });
-
-// ---------- tabs ----------
-function showTab(name) {
-  document.querySelectorAll(".tab").forEach(function (b) {
-    b.classList.toggle("active", b.dataset.tab === name);
-  });
-  document.querySelectorAll(".panel").forEach(function (p) {
-    p.classList.toggle("active", p.id === "panel-" + name);
-  });
-}
-document.querySelectorAll(".tab").forEach(function (b) {
-  b.addEventListener("click", function () { showTab(b.dataset.tab); });
-});
-
-// ---------- one click handler for dynamic buttons ----------
-document.addEventListener("click", function (e) {
-  if (e.target.closest("[data-close]") || e.target === $("overlay")) { closeReport(); return; }
+  if (e.target.closest("[data-close]") || e.target === $("overlay")) { closeReport(); return true; }
   const rep = e.target.closest("[data-report]");
-  if (rep) { openReport(rep.dataset.report); return; }
-  const el = e.target.closest("[data-act]");
-  if (!el) return;
-  const id = el.dataset.id;
-  const act = el.dataset.act;
-  if (act === "advance") advanceOrder(id);
-  if (act === "toggle") toggleAvailable(id);
-  if (act === "edit") editFood(id);
-  if (act === "delete") deleteFood(id);
-  if (act === "stopDiscount") setDiscount(id, 0);
-  if (act === "promoToggle") togglePromo(id);
-  if (act === "promoDelete") deletePromo(id);
+  if (rep) { openReport(rep.dataset.report); return true; }
+  return false;
 });
 
+// ---------- data-act buttons ----------
+onAction("advance", function (id) { advanceOrder(id); });
+onAction("toggle", function (id) { toggleAvailable(id); });
+onAction("edit", function (id) { editFood(id); });
+onAction("delete", function (id) { deleteFood(id); });
+onAction("stopDiscount", function (id) { setDiscount(id, 0); });
+onAction("promoToggle", function (id) { togglePromo(id); });
+onAction("promoDelete", function (id) { deletePromo(id); });
+onAction("gApprove", function (id) { approveGreen(id); });   // [NEW]
+onAction("gReject", function (id) { rejectGreen(id); });     // [NEW]
+
+// [NEW] tick "I checked the items" (saved right away, so the approve button can be enabled)
+onChange(function (e) {
+  const c = e.target.closest("[data-gcheck]");
+  if (!c) return false;
+  setChecked(c.dataset.gcheck, c.checked).catch(function (err) {
+    toast("Could not save the tick.");
+    console.error(err);
+  });
+  return true;
+});
+
+// Escape closes the popups
+onEscape(function () { closeReport(); closeGreenRecord(); });
+
+// Enter / Space on a report card opens it
 document.addEventListener("keydown", function (e) {
-  if (e.key === "Escape") closeReport();
   if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-report]")) {
     e.preventDefault();
     openReport(e.target.dataset.report);
@@ -454,6 +481,7 @@ function watchOrders() {
     function (snap) {
       orders = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       renderOrders();
+      renderGreen();          // [NEW] coins used today depends on orders
     },
     function (err) { toast("Could not load orders."); console.error(err); }
   );
@@ -461,6 +489,23 @@ function watchOrders() {
 
 function setBar(id, pct) {
   $(id).style.width = Math.max(0, Math.min(100, pct)) + "%";
+}
+
+// [NEW] small green line for an order: coins used, and the G-code status
+function greenLineHtml(o) {
+  const used = Number(o.coinsUsed) || 0;
+  if (!used && !o.greenCode) return "";
+  let add = "";
+  if (o.greenCode) {
+    const s = greenSubs.find(function (x) { return x.code === o.greenCode; });
+    if (!s) add = escapeHtml(o.greenCode);
+    else if (s.status === "Approved") add = escapeHtml(o.greenCode) + ": +" + s.coins + " added";
+    else if (s.status === "Rejected") add = escapeHtml(o.greenCode) + ": rejected";
+    else add = escapeHtml(o.greenCode) + ": +" + s.coins + " waiting";
+  }
+  const parts = [used ? "Used <b>" + used + "</b> Green coins" : "", add].filter(Boolean).join(" · ");
+  const cls = o.greenCode && greenSubs.some(function (x) { return x.code === o.greenCode && x.status === "Pending"; }) ? " pending" : "";
+  return '<div class="gline' + cls + '">Green Points · ' + parts + '</div>';
 }
 
 function renderOrders() {
@@ -498,7 +543,7 @@ function renderOrders() {
         return '<div class="list-row">' +
           '<span><span class="hl-token">#' + o.token + '</span>' + tag + ' ' +
             '<span class="hl-id">Student ID: ' + escapeHtml(o.studentId || "not given") + '</span> ' +
-            escapeHtml(itemsText(o)) + '</span>' +
+            escapeHtml(itemsText(o)) + greenLineHtml(o) + '</span>' +
           '<span class="price">' + o.total + ' Tk <span class="muted" style="font-weight:600">· ' + timeText(o) + '</span></span>' +
         '</div>';
       }).join("")
@@ -512,6 +557,7 @@ function ticketHtml(o) {
       '<div>' + studentIdHtml(o) + '</div>' +
       '<div class="items">' + escapeHtml(itemsText(o)) + '</div>' +
       '<div class="meta">' + o.total + ' Tk, ordered at ' + timeText(o) + '</div>' +
+      greenLineHtml(o) +
       '<button class="small" data-act="advance" data-id="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>' +
     '</div></div>';
 }
@@ -961,6 +1007,153 @@ function deletePromo(id) {
     toast("Could not delete the promo code.");
     console.error(err);
   });
+}
+
+// ---------- [NEW] green desk ----------
+function watchGreen() {
+  onSnapshot(query(collection(db, "greenSubmissions"), orderBy("createdAt", "desc"), limit(100)),
+    function (snap) {
+      greenSubs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderGreen();
+      renderOrders();         // token green lines depend on submission status
+    },
+    function (err) { toast("Could not load the Green Desk."); console.error(err); }
+  );
+  onSnapshot(collection(db, "wallets"),
+    function (snap) {
+      wallets = {};
+      snap.docs.forEach(function (d) { wallets[d.id] = d.data(); });
+      renderGreen();
+    },
+    function (err) { console.error(err); }
+  );
+}
+
+function renderGreen() {
+  const today = todayKey();
+  const pend = greenSubs.filter(function (s) { return s.status === "Pending"; });
+
+  $("g-pending").textContent = pend.length;
+  $("g-issued").textContent = greenSubs
+    .filter(function (s) { return s.status === "Approved" && s.day === today; })
+    .reduce(function (a, s) { return a + (Number(s.coins) || 0); }, 0);
+  $("g-used").textContent = orders
+    .filter(function (o) { return dayOf(o) === today; })
+    .reduce(function (a, o) { return a + (Number(o.coinsUsed) || 0); }, 0);
+
+  $("g-desk").innerHTML = pend.length
+    ? pend.map(function (s) {
+        return '<div class="gsub">' +
+          '<div class="list-row" style="border:0;padding:0"><span><b>' + escapeHtml(s.code) + '</b> · Student <b>' + escapeHtml(s.sid) + '</b></span>' +
+          '<span class="count">' + (s.coins || 0) + ' coins</span></div>' +
+          '<div class="muted" style="margin:6px 0">' + (s.items || []).map(function (i) {
+            return i.qty + ' × ' + escapeHtml(i.name);
+          }).join(', ') + '</div>' +
+          '<label class="gcheck"><input type="checkbox" data-gcheck="' + escapeHtml(s.id) + '"' + (s.checked ? ' checked' : '') + '> I checked the items</label>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="small" data-act="gApprove" data-id="' + escapeHtml(s.id) + '"' + (s.checked ? '' : ' disabled') + '>Approve</button>' +
+            '<button class="ghost small" data-act="gReject" data-id="' + escapeHtml(s.id) + '">Reject</button>' +
+          '</div></div>';
+      }).join("")
+    : '<div class="empty">No pending submissions.</div>';
+
+  const ids = Object.keys(wallets);
+  $("g-ledger").innerHTML = ids.length
+    ? ids.map(function (id) {
+        const w = wallets[id] || {};
+        const waiting = pend.filter(function (s) { return s.sid === id; })
+          .reduce(function (a, s) { return a + (Number(s.coins) || 0); }, 0);
+        return '<tr class="click" data-greport="' + escapeHtml(id) + '">' +
+          '<td>' + escapeHtml(id) + '</td>' +
+          '<td>' + (w.balance || 0) + '</td>' +
+          '<td>' + (w.issued || 0) + '</td>' +
+          '<td>' + (w.redeemed || 0) + '</td>' +
+          '<td>' + (waiting ? '+' + waiting : '0') + '</td></tr>';
+      }).join("")
+    : '<tr><td colspan="5" class="empty">No wallets yet.</td></tr>';
+
+  const log = greenSubs.filter(function (s) { return s.status !== "Pending"; }).slice(0, 8);
+  $("g-log").innerHTML = log.length
+    ? log.map(function (s) {
+        return '<div class="list-row"><span><b>' + escapeHtml(s.code) + '</b> · ' + escapeHtml(s.sid) +
+          ' · <span class="badge ' + (s.status === "Approved" ? "green" : "off") + '">' + s.status + '</span></span>' +
+          '<span class="price">' + (s.status === "Approved" ? "+" + (s.coins || 0) : "0") + '</span></div>';
+      }).join("")
+    : 'Nothing yet.';
+}
+
+async function approveGreen(id) {
+  try {
+    const coins = await approveSubmission(id);
+    toast(coins + " coins added.");
+  } catch (err) {
+    const msgs = {
+      NOT_CHECKED: 'Tick "I checked the items" first.',
+      ALREADY_DECIDED: "This submission was already decided.",
+      NOT_FOUND: "Submission not found."
+    };
+    toast(msgs[err.message] || "Could not approve. Try again.");
+    console.error(err);
+  }
+}
+
+async function rejectGreen(id) {
+  try {
+    await rejectSubmission(id);
+    toast("Submission rejected.");
+  } catch (err) {
+    const msgs = {
+      ALREADY_DECIDED: "This submission was already decided.",
+      NOT_FOUND: "Submission not found."
+    };
+    toast(msgs[err.message] || "Could not reject. Try again.");
+    console.error(err);
+  }
+}
+
+async function openGreenRecord(sid) {
+  const w = wallets[sid] || { balance: 0, issued: 0, redeemed: 0 };
+  const subs = greenSubs.filter(function (s) { return s.sid === sid; });
+  $("green-sheet").innerHTML =
+    '<div class="g-head">' +
+      '<div><div class="eyebrow">Full record</div><h2>Student ' + escapeHtml(sid) + '</h2></div>' +
+      '<button class="x" data-gclose aria-label="Close">&times;</button>' +
+    '</div>' +
+    '<div class="g-stats">' +
+      '<div>Balance<b>' + (w.balance || 0) + '</b></div>' +
+      '<div>Earned<b>' + (w.issued || 0) + '</b></div>' +
+      '<div>Used on orders<b>' + (w.redeemed || 0) + '</b></div>' +
+    '</div>' +
+    '<h3>Coin history</h3>' +
+    '<div class="g-scroll" id="green-hist">Loading...</div>' +
+    '<h3 style="margin-top:12px">Submissions</h3>' +
+    '<div class="g-scroll">' + (subs.length
+      ? subs.map(function (s) {
+          return '<div class="list-row"><span><b>' + escapeHtml(s.code) + '</b> · ' + escapeHtml(s.day || "") + ' ' + escapeHtml(s.at || "") +
+            '<div class="hint">' + (s.items || []).map(function (i) { return i.qty + ' × ' + escapeHtml(i.name); }).join(', ') + '</div></span>' +
+            '<span class="badge ' + (s.status === "Approved" ? "green" : "off") + '">' + s.status + '</span></div>';
+        }).join("")
+      : '<div class="muted">No submissions yet.</div>') + '</div>';
+  $("green-overlay").classList.remove("hidden");
+
+  try {
+    const snap = await getDocs(query(collection(db, "wallets", sid, "history"), orderBy("at", "desc"), limit(50)));
+    $("green-hist").innerHTML = snap.empty
+      ? '<div class="muted">No history yet.</div>'
+      : snap.docs.map(function (d) {
+          const h = d.data();
+          const delta = Number(h.delta) || 0;
+          return '<div class="list-row"><span>' + escapeHtml(h.text || "") + '</span>' +
+            '<b class="' + (delta > 0 ? "green" : "") + '">' + (delta > 0 ? "+" : "") + delta + '</b></div>';
+        }).join("");
+  } catch (err) {
+    $("green-hist").innerHTML = '<div class="muted">Could not load the history.</div>';
+    console.error(err);
+  }
+}
+
+function closeGreenRecord() {
+  $("green-overlay").classList.add("hidden");
 }
 
 // ---------- planner settings ----------
