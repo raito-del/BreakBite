@@ -1,15 +1,11 @@
 // green-points/order-hook.js
-// A small helper for student.html. It asks "Add Green Points to this order?"
-// and, if the student says yes, lets them pick items and submits them.
-// It does NOT place the food order itself; student.html does that after this resolves.
-//
-// Usage in student.html (later step):
-//   import { askGreenPoints } from "./green-points/order-hook.js";
-//   const r = await askGreenPoints(studentId);   // { greenCode } or throws
-//   // then place the food order, with r.greenCode (null if skipped)
-//
-// Rejects with Error("CANCELLED") if the student closes the question, so no order is placed.
-import { getGreenItems, getGreenRules, submitGreen, dailyItemsUsed, isValidStudentId } from "./green.js";
+// Two popups for student.html:
+//   askUseCoins(sid, payableTk)  -> "Use your Green Points coins?"  resolves { coins }
+//   askGreenPoints(sid)          -> "Add Green Points to this order?" resolves { greenCode }
+// Both reject with Error("CANCELLED") when the student closes them, so no order is placed.
+import {
+  getGreenItems, getGreenRules, getWallet, submitGreen, dailyItemsUsed, isValidStudentId
+} from "./green.js";
 
 const CSS_URL = new URL("green.css", import.meta.url).href;
 
@@ -32,6 +28,120 @@ const ERRORS = {
   DAILY_LIMIT: "Daily limit reached for this student. You can skip Green Points."
 };
 
+// ============================================================
+// 1. Use coins on this order (discount)
+// ============================================================
+// payableTk: the amount the student would pay before coins (after promo).
+// Resolves { coins } with the number of coins to use (0 = none).
+export async function askUseCoins(studentId, payableTk) {
+  if (!isValidStudentId(studentId)) return { coins: 0 };
+
+  const [rules, wallet] = await Promise.all([getGreenRules(), getWallet(studentId)]);
+  const balance = wallet.balance || 0;
+  const payable = Math.max(0, Math.round(Number(payableTk) || 0));
+  const maxUse = Math.max(0, Math.min(
+    balance,
+    Math.floor(payable * rules.maxPct / 100),
+    Math.floor(payable / rules.coinTk)
+  ));
+
+  // nothing to offer: resolve at once, no popup
+  if (balance <= 0 || maxUse <= 0) return { coins: 0 };
+
+  ensureCss();
+
+  return new Promise((resolve, reject) => {
+    const root = document.createElement("div");
+    root.className = "green-page gp-hook";
+    root.innerHTML = `
+      <div class="gp-overlay open" role="dialog" aria-modal="true" aria-labelledby="guc-title">
+        <div class="gp-sheet">
+          <button class="ghost xs x" data-k="close" aria-label="Close">Close</button>
+          <div class="eyebrow">Green Points</div>
+          <h2 id="guc-title" style="margin-top:2px">Use your coins on this order?</h2>
+          <p class="muted small" style="margin:4px 0 10px">
+            You have <b>${balance}</b> coins (worth ${Math.round(balance * rules.coinTk)} Tk).
+            You can use up to <b>${maxUse}</b> coins on this order.
+          </p>
+
+          <div class="choice" style="justify-content:flex-start;margin-top:0">
+            <button class="ghost xs" data-pct="25">25%</button>
+            <button class="ghost xs" data-pct="50">50%</button>
+            <button class="ghost xs" data-pct="75">75%</button>
+            <button class="ghost xs" data-pct="100">Max</button>
+            <button class="ghost xs" data-pct="0">Zero</button>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;margin:10px 0 4px;flex-wrap:wrap">
+            <label class="small">Coins to use
+              <input id="guc-coins" type="number" min="0" max="${maxUse}" value="0" style="width:110px;margin-left:6px">
+            </label>
+          </div>
+
+          <div class="row"><span>Discount</span><b class="green" id="guc-off">0 Tk</b></div>
+          <div class="row"><span>Discount on bill</span><b id="guc-pct">0%</b></div>
+          <div class="row"><span>New total</span><b id="guc-total">${payable} Tk</b></div>
+
+          <div class="choice">
+            <button class="ghost" data-k="none">Don't use coins</button>
+            <button data-k="ok" id="guc-ok">Don't use coins</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(root);
+
+    const coinsInput = root.querySelector("#guc-coins");
+
+    function finish(fn, value) {
+      root.remove();
+      document.removeEventListener("keydown", onKey);
+      fn(value);
+    }
+    function onKey(e) { if (e.key === "Escape") finish(reject, new Error("CANCELLED")); }
+    document.addEventListener("keydown", onKey);
+
+    root.querySelector(".gp-overlay").addEventListener("click", e => {
+      if (e.target === e.currentTarget) finish(reject, new Error("CANCELLED"));
+    });
+
+    function currentCoins() {
+      let n = parseInt(coinsInput.value, 10);
+      if (isNaN(n) || n < 0) n = 0;
+      if (n > maxUse) n = maxUse;
+      return n;
+    }
+
+    function update() {
+      const n = currentCoins();
+      const off = n * rules.coinTk;
+      root.querySelector("#guc-off").textContent = off + " Tk";
+      root.querySelector("#guc-pct").textContent = payable ? Math.round(off / payable * 100) + "%" : "0%";
+      root.querySelector("#guc-total").textContent = (payable - off) + " Tk";
+      root.querySelector("#guc-ok").textContent = n ? "Use " + n + " coins" : "Don't use coins";
+    }
+
+    coinsInput.addEventListener("input", update);
+
+    // percent of the student's balance (capped at what this order allows)
+    root.querySelectorAll("[data-pct]").forEach(b => b.addEventListener("click", () => {
+      const pct = parseInt(b.dataset.pct, 10);
+      const n = Math.min(maxUse, Math.floor(balance * pct / 100));
+      coinsInput.value = n;
+      update();
+    }));
+
+    root.querySelector('[data-k="close"]').onclick = () => finish(reject, new Error("CANCELLED"));
+    root.querySelector('[data-k="none"]').onclick = () => finish(resolve, { coins: 0 });
+    root.querySelector('[data-k="ok"]').onclick = () => finish(resolve, { coins: currentCoins() });
+
+    update();
+    setTimeout(() => coinsInput.focus(), 50);
+  });
+}
+
+// ============================================================
+// 2. Add Green Points (bring items, get a G-code)
+// ============================================================
 export function askGreenPoints(studentId) {
   if (!isValidStudentId(studentId)) return Promise.reject(new Error("INVALID_SID"));
   ensureCss();
