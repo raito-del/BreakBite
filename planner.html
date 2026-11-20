@@ -9,6 +9,21 @@
     /* Planner-only additions. Colours come from the theme variables in style.css */
     .result-title { margin: 28px 0 12px; font-size: 22px; color: var(--accent); }
     .card h3 { font-size: 18px; margin-bottom: 10px; }
+    .now-card { display: flex; flex-direction: column; gap: 6px; }
+    .now-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .now-time { font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .slot-pill {
+      display: inline-block; border: 2px solid #3b2314; border-radius: 999px;
+      padding: 4px 14px; font-weight: 800; background: #cfeab0;
+    }
+    .slot-pill.closed { background: #f7d4cc; }
+    .slot-note { font-size: 13px; color: #7a5a44; margin: 0; }
+    .slot-notice {
+      background: #cfeab0; border: 2px dashed #3b2314; border-radius: 12px;
+      padding: 10px 12px; margin-bottom: 14px; font-weight: 700;
+    }
+    .slot-notice[hidden] { display: none; }
+    .fast-line { font-size: 14px; line-height: 1.7; }
   </style>
 </head>
 <body>
@@ -24,7 +39,20 @@
 
 <main class="narrow">
   <h1>Break Planner</h1>
-  <p class="intro">Tell us how long your break is and how much money you have. We will suggest up to five good combos that fit both.</p>
+  <p class="intro">Tell us how long your break is and how much money you have. We will suggest good combos from the food that is open right now.</p>
+
+  <div class="card now-card">
+    <div class="now-row">
+      <div>
+        <div class="muted">Right now (Dhaka time)</div>
+        <div class="now-time" id="now-time">--:--</div>
+      </div>
+      <span class="slot-pill" id="slot-pill">-</span>
+    </div>
+    <p class="slot-note" id="slot-note"></p>
+  </div>
+
+  <div class="slot-notice" id="slot-notice" role="status" hidden></div>
 
   <div class="card">
     <h2>Your break</h2>
@@ -41,8 +69,14 @@
   </div>
 
   <div id="result-area" hidden>
-    <h2 class="result-title">Suggested combos</h2>
+    <h2 class="result-title" id="result-title">Suggested combos</h2>
     <div id="result-cards"></div>
+  </div>
+
+  <div class="card">
+    <h3>Fast food also open</h3>
+    <div class="fast-line" id="fast-list"><span class="muted">Loading...</span></div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Fast food is sold at market price, so it is listed here and not added to the budget plan.</p>
   </div>
 </main>
 
@@ -52,13 +86,24 @@ import {
   collection, doc, getDoc, getDocs, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const DEFAULTS = { minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5 };
-const OPTION_COUNT = 5;      // how many combos to show
-const MIN_DIFFERENCE = 2;    // two combos must differ by at least this many items
-const SEARCH_LIMIT = 2000000; // safety cap on how many item sets are checked
+// Defaults are used until settings/planner is read. Staff can change them there.
+const DEFAULTS = {
+  minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5,
+  morningEnd: "11:00",   // breakfast items until this time (Dhaka)
+  lunchEnd: "16:00",     // lunch items until this time (Dhaka)
+  openTime: "08:30",     // canteen opens (Dhaka)
+  closeTime: "16:00"     // canteen closes (Dhaka)
+};
+const SLOT_NAMES = { morning: "Morning", lunch: "Lunch", fast: "Fast food", closed: "Canteen closed" };
+const OPTION_COUNT = 5;        // how many combos to show
+const MIN_DIFFERENCE = 2;      // two combos must differ by at least this many items
+const SEARCH_LIMIT = 2000000;  // safety cap on how many item sets are checked
 
 let settings = Object.assign({}, DEFAULTS);
 let foods = [];
+let lastSlot = null;
+let lastInput = null;          // { minutes, money } from the last "Show options" press
+let noticeTimer = null;
 
 const $ = function (id) { return document.getElementById(id); };
 
@@ -68,16 +113,88 @@ function esc(s) {
   });
 }
 
-function showError(msg) {
-  $("error").textContent = msg;
-  if (msg) $("result-area").hidden = true;
+// ---------- time helpers (Dhaka, UTC+6, 12-hour display) ----------
+function dhakaMinutes(ms) {
+  const d = new Date(ms + 6 * 3600000);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+// "11:00" -> 660. If the text is not HH:MM, the fallback is used.
+function parseHM(s, fallback) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
+  if (!m) return fallback;
+  const h = Number(m[1]), mi = Number(m[2]);
+  if (h > 23 || mi > 59) return fallback;
+  return h * 60 + mi;
+}
+function fmt12(mins) {
+  const h24 = Math.floor(mins / 60) % 24, m = mins % 60;
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return h12 + ":" + (m < 10 ? "0" : "") + m + (h24 < 12 ? " AM" : " PM");
+}
+function nowText(ms) {
+  return fmt12(dhakaMinutes(ms));
 }
 
+// Canteen times from settings
+function times() {
+  return {
+    open: parseHM(settings.openTime, 510),       // 08:30
+    morningEnd: parseHM(settings.morningEnd, 660),
+    lunchEnd: parseHM(settings.lunchEnd, 960),
+    close: parseHM(settings.closeTime, 960)      // 16:00
+  };
+}
+
+// Which group is open now.
+// Before opening: closed. Before morning ends: morning. Before lunch ends (and before close): lunch.
+// After that: fast food only.
+function currentSlot() {
+  const t = times();
+  const m = dhakaMinutes(Date.now());
+  if (m < t.open) return "closed";
+  if (m < t.morningEnd) return "morning";
+  if (m < t.lunchEnd && m < t.close) return "lunch";
+  return "fast";
+}
+
+function slotNote(slot) {
+  const t = times();
+  if (slot === "closed") return "The canteen opens at " + fmt12(t.open) + ".";
+  if (slot === "morning") return "Breakfast items are open until " + fmt12(t.morningEnd) + ".";
+  if (slot === "lunch") return "Lunch items are open until " + fmt12(Math.min(t.lunchEnd, t.close)) + ".";
+  return "Lunch is over. Only fast food is open now.";
+}
+
+// ---------- live clock and slot changes ----------
+function tick() {
+  const ms = Date.now();
+  const slot = currentSlot();
+  $("now-time").textContent = nowText(ms);
+  $("slot-pill").textContent = SLOT_NAMES[slot];
+  $("slot-pill").classList.toggle("closed", slot === "closed");
+  $("slot-note").textContent = slotNote(slot);
+
+  if (lastSlot !== null && slot !== lastSlot) {
+    showSlotNotice("It is now " + SLOT_NAMES[slot] + ". Suggestions have been updated.");
+    if (lastInput) runPlan(true);
+  }
+  lastSlot = slot;
+}
+
+function showSlotNotice(text) {
+  const n = $("slot-notice");
+  n.textContent = text;
+  n.hidden = false;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(function () { n.hidden = true; }, 8000);
+}
+
+// ---------- load settings and menu ----------
 function finalPrice(f) {
+  if (f.price == null) return null;
   return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
 
-// ---------- load settings and menu once ----------
 async function load() {
   try {
     const sSnap = await getDoc(doc(db, "settings", "planner"));
@@ -90,16 +207,17 @@ async function load() {
     const snap = await getDocs(query(collection(db, "menu"), orderBy("order")));
     foods = snap.docs
       .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-      .filter(function (f) { return f.available !== false; })
+      .filter(function (f) { return f.available !== false && f.slot; })   // items with no slot are not planned
       .map(function (f) {
         return {
           name: f.name,
-          price: finalPrice(f),
+          slot: f.slot,
+          price: finalPrice(f),                     // null = market price
           discount: f.discount || 0,
-          minutes: f.minutes > 0 ? f.minutes : settings.defaultEat
+          minutes: f.minutes > 0 ? f.minutes : Number(settings.defaultEat) || 5
         };
       })
-      .filter(function (f) { return f.price >= 0 && f.minutes > 0; });
+      .filter(function (f) { return f.minutes > 0; });
   } catch (err) {
     console.error(err);
     showError("Could not load the menu. Check your internet and refresh.");
@@ -113,17 +231,29 @@ async function load() {
   t.step = settings.step;
   t.placeholder = "e.g. " + Math.min(settings.maxBreak, Math.max(settings.minBreak, 15));
 
+  renderFastList();
   $("plan-btn").disabled = false;
   $("plan-btn").textContent = "Show options";
-  if (!foods.length) showError("No food is available right now. Please check again later.");
+  tick();
+  setInterval(tick, 1000);
 }
 
-// ---------- find the best combos ----------
-// A combo is a set of different items. Each item is used at most once.
+function renderFastList() {
+  const fast = foods.filter(function (f) { return f.slot === "fast"; });
+  $("fast-list").innerHTML = fast.length
+    ? fast.map(function (f) {
+        return esc(f.name) + ' <span class="muted">(' + (f.price == null ? "market price" : f.price + " Tk") + ')</span>';
+      }).join(" · ")
+    : '<span class="muted">No fast food right now.</span>';
+}
+
+// ---------- find the best combos for the current slot ----------
+// A combo is a set of different items from the current slot, each used at most once.
 // Score: more items first, then more of the break time used, then more of the money used.
-// Options must differ from each other by at least MIN_DIFFERENCE items, so the 5 choices are not near-copies.
-function findOptions(minutes, money) {
-  const items = foods.filter(function (f) { return f.minutes <= minutes && f.price <= money; });
+function findOptions(slot, minutes, money) {
+  const items = foods.filter(function (f) {
+    return f.slot === slot && f.price != null && f.minutes <= minutes && f.price <= money;
+  });
   const n = items.length;
   const KEEP = 400;
   const chosen = [];
@@ -175,13 +305,23 @@ function findOptions(minutes, money) {
 }
 
 // ---------- show results ----------
-function renderOptions(options, minutes, money) {
+function showError(msg) {
+  $("error").textContent = msg;
+  if (msg) $("result-area").hidden = true;
+}
+
+function renderOptions(slot, options, minutes, money) {
   const area = $("result-area");
   const cards = $("result-cards");
+  $("result-title").textContent = slot === "closed" ? "Canteen closed" : "Suggested for " + SLOT_NAMES[slot];
 
-  if (!options.length) {
-    cards.innerHTML = '<div class="card"><div class="empty">Nothing fits in ' + minutes +
-      ' minutes and ' + money + ' Tk. Try more time or money.</div></div>';
+  if (slot === "closed") {
+    cards.innerHTML = '<div class="card"><div class="empty">' + esc(slotNote("closed")) + '</div></div>';
+  } else if (!options.length) {
+    const msg = slot === "fast"
+      ? "Only fast food is open now, and its price follows the market, so it cannot be planned by money. See the list below."
+      : "Nothing from " + SLOT_NAMES[slot] + " fits " + minutes + " min and Tk " + money + ". Try more time or money.";
+    cards.innerHTML = '<div class="card"><div class="empty">' + esc(msg) + '</div></div>';
   } else {
     cards.innerHTML = options.map(function (o, k) {
       const rows = o.items.map(function (f) {
@@ -205,6 +345,20 @@ function renderOptions(options, minutes, money) {
   area.hidden = false;
 }
 
+function runPlan(auto) {
+  if (!lastInput) return;
+  const minutes = lastInput.minutes, money = lastInput.money;
+  const slot = currentSlot();
+  if (!foods.length) {
+    showError("No food is available right now. Please check again later.");
+    return;
+  }
+  showError("");
+  const options = slot === "closed" || slot === "fast" ? [] : findOptions(slot, minutes, money);
+  renderOptions(slot, options, minutes, money);
+  if (auto) showSlotNotice("Suggestions updated for " + SLOT_NAMES[slot] + ".");
+}
+
 $("plan-btn").addEventListener("click", function () {
   const minutes = parseInt($("time").value, 10);
   const money = parseInt($("money").value, 10);
@@ -217,12 +371,8 @@ $("plan-btn").addEventListener("click", function () {
     showError("Please enter how much money you have.");
     return;
   }
-  if (!foods.length) {
-    showError("No food is available right now. Please check again later.");
-    return;
-  }
-  showError("");
-  renderOptions(findOptions(minutes, money), minutes, money);
+  lastInput = { minutes: minutes, money: money };
+  runPlan(false);
 });
 
 load();

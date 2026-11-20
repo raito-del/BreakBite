@@ -5,6 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BreakBite - Order</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Order-page additions only. Colours come from the same theme as style.css. */
+    .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .cat {
+      position: relative; background: #fff; border: 2px solid #3b2314; border-radius: 14px;
+      box-shadow: 3px 3px 0 #3b2314; padding: 14px 8px; text-align: center; cursor: pointer;
+      color: #3b2314; font: inherit; transition: transform .15s, box-shadow .15s;
+    }
+    .cat:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 #3b2314; }
+    .cat b { display: block; font-size: 15px; }
+    .cat small { display: block; font-size: 12px; color: #7a5a44; margin-top: 2px; }
+    .cat.m { background: #cfeab0; }
+    .cat.l { background: #ffe08a; }
+    .cat.f { background: #ffd0a8; }
+    .cat-badge {
+      position: absolute; top: -8px; right: -8px; background: #d9482b; color: #fff;
+      border: 2px solid #3b2314; border-radius: 999px; min-width: 24px; height: 24px; padding: 0 6px;
+      font-size: 12px; font-weight: 900; display: none; align-items: center; justify-content: center;
+    }
+    .cat-badge.on { display: inline-flex; }
+
+    .sheet-ov {
+      position: fixed; inset: 0; background: rgba(59, 35, 20, .35);
+      backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+      display: flex; align-items: flex-end; justify-content: center; z-index: 50;
+    }
+    .sheet-ov[hidden] { display: none; }
+    .sheet {
+      background: #fff3dc; border: 2px solid #3b2314; border-radius: 18px 18px 0 0;
+      box-shadow: 4px -4px 0 #3b2314; width: 100%; max-width: 640px; max-height: 82vh;
+      display: flex; flex-direction: column; padding: 14px 14px 10px;
+    }
+    .sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .sheet-list { overflow-y: auto; flex: 1; margin-top: 10px; padding-right: 4px; }
+    .sheet-foot {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      border-top: 2px dashed #f0d7b8; padding-top: 10px; margin-top: 8px; flex-wrap: wrap;
+    }
+    .sub-line { font-size: 12px; color: #7a5a44; }
+    .cancel-chip { display: inline-block; font-size: 12px; font-weight: 800; border: 2px solid #3b2314; border-radius: 999px; padding: 1px 9px; background: #ffe08a; }
+    .pickup-note { font-size: 12px; color: #7a5a44; margin-top: 6px; }
+    .step.wait { opacity: .6; }
+  </style>
 </head>
 <body>
  
@@ -21,7 +64,7 @@
 <main class="narrow">
   <section class="hero">
     <h1>Pre-order, skip the queue.</h1>
-    <p class="muted">Smart Food, Smart Time. Pick your food, place the order, and collect it when your token is ready.</p>
+    <p class="muted">Smart Food, Smart Time. Pick your food, choose when you want it, and collect it with your token.</p>
   </section>
  
   <div class="card rush">
@@ -41,11 +84,23 @@
   </div>
  
   <div class="card">
-    <h2>Today's menu</h2>
-    <div id="menu-list"><div class="empty">Loading menu...</div></div>
+    <h2>When would you like to pick it up?</h2>
+    <p class="muted">Get it now, or choose a time. The number in brackets is how many orders that time already has.</p>
+    <select id="pickup" style="width:100%"></select>
+    <p class="pickup-note" id="pickup-note"></p>
   </div>
  
-  <!-- NEW: promo code -->
+  <div class="card">
+    <h2>What would you like?</h2>
+    <p class="muted">Tap a box to see the food and choose how many.</p>
+    <div class="cats">
+      <button class="cat m" data-cat="morning"><b>Morning</b><small>Breakfast items</small><span class="cat-badge" data-badge="morning"></span></button>
+      <button class="cat l" data-cat="lunch"><b>Lunch</b><small>Rice and curry</small><span class="cat-badge" data-badge="lunch"></span></button>
+      <button class="cat f" data-cat="fast"><b>Fast food</b><small>Snacks and drinks</small><span class="cat-badge" data-badge="fast"></span></button>
+    </div>
+  </div>
+ 
+  <!-- promo code -->
   <div class="card">
     <h2>Promo code</h2>
     <p class="muted">Have a code? Enter it to get a discount.</p>
@@ -92,6 +147,22 @@
     <div id="sid-result"></div>
   </div>
 </main>
+
+<!-- category popup -->
+<div class="sheet-ov" id="sheet-ov" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <h2 id="sheet-title">Morning</h2>
+      <button class="ghost small" id="sheet-close">Close</button>
+    </div>
+    <p class="sub-line" id="sheet-sub"></p>
+    <div class="sheet-list" id="sheet-list"></div>
+    <div class="sheet-foot">
+      <span id="sheet-total">Nothing selected yet</span>
+      <button id="sheet-done">Done</button>
+    </div>
+  </div>
+</div>
  
 <div id="toast" hidden></div>
  
@@ -110,31 +181,41 @@ let askUseCoins = null;
 import("./green-points/order-hook.js")
   .then(function (m) { askUseCoins = m.askUseCoins || null; })
   .catch(function (err) { console.error(err); });
- 
-const STEPS = ["Received", "Preparing", "Ready"];
+
+// ---------- settings for this page ----------
+// Defaults are used until settings/planner is read. Staff can change them there.
+const SLOT_NAMES = { morning: "Morning", lunch: "Lunch", fast: "Fast food" };
+const SLOT_SUB = { morning: "Breakfast items", lunch: "Rice and curry", fast: "Snacks and drinks" };
+const STEP_MS = 5 * 60000;          // pickup times every 5 minutes
+const WINDOW_MS = 15 * 60000;       // capacity is counted per 15-minute window
+const STEPS_SCHEDULED = ["Scheduled", "Received", "Preparing", "Ready"];
+const STEPS_NOW = ["Received", "Preparing", "Ready"];
 const KEY = "breakbite_orders";      // list of order IDs this browser placed
 const OLD_KEY = "breakbite_order";   // single ID used by the earlier version
-const CANCEL_MINUTES = 15;
- 
-let menu = [];
-let qty = {};
+
+let WINDOW_CAP = 20;     // orders allowed per 15-minute window   (settings: windowCap)
+let LEAD_MIN = 10;       // staff is told this many minutes before pickup (settings: leadMinutes)
+let AHEAD_MIN = 180;     // students can book up to this far ahead (settings: aheadMinutes)
+let OPEN_MIN = 8 * 60 + 30;   // canteen opens 8:30 AM Dhaka   (settings: openTime)
+let CLOSE_MIN = 16 * 60;      // canteen closes 4:00 PM Dhaka  (settings: closeTime)
+
+let menu = [];          // available items with a slot
+let qty = {};           // { itemId: qty }
 let pending = 0;
-let applied = null;  // NEW: promo applied to the cart, { code, percent }
-let live = {};       // orderId -> latest order data
-let watching = {};   // orderId -> unsubscribe function
- 
+let applied = null;     // promo applied to the cart, { code, percent }
+let live = {};          // orderId -> latest order data
+let watching = {};      // orderId -> unsubscribe function
+let activeOrders = [];  // every active order, used to count pickup windows
+let openSlot = null;
+
 const $ = function (id) { return document.getElementById(id); };
- 
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
   });
 }
- 
-function price(f) {
-  return Math.round(f.price * (100 - (f.discount || 0)) / 100);
-}
- 
+
 function toast(msg) {
   const t = $("toast");
   t.textContent = msg;
@@ -142,20 +223,75 @@ function toast(msg) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(function () { t.hidden = true; }, 2500);
 }
- 
-function waitMinutes() {
-  return 3 + pending * 2;
+
+// Time helpers. Times are shown in 12-hour format, Dhaka time.
+const fmt12 = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Dhaka", hour: "numeric", minute: "2-digit", hour12: true });
+function hm12(ms) { return fmt12.format(new Date(ms)); }
+function dhakaMinutes(ms) {
+  const d = new Date(ms + 6 * 3600000);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
- 
+// "08:30" -> 510. Returns null if the text is not HH:MM.
+function parseHM(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
+  if (!m) return null;
+  const h = Number(m[1]), mi = Number(m[2]);
+  if (h > 23 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+// ---------- settings from Firestore (settings/planner) ----------
+// Missing or invalid values keep the defaults above. If Firestore refuses the read,
+// the page keeps working with the defaults.
+onSnapshot(doc(db, "settings", "planner"),
+  function (snap) {
+    if (snap.exists()) {
+      const s = snap.data();
+      const lead = Number(s.leadMinutes);
+      if (lead > 0) LEAD_MIN = lead;
+      const cap = Number(s.windowCap);
+      if (cap > 0) WINDOW_CAP = cap;
+      const ahead = Number(s.aheadMinutes);
+      if (ahead > 0) AHEAD_MIN = ahead;
+      const open = parseHM(s.openTime);
+      if (open !== null) OPEN_MIN = open;
+      const close = parseHM(s.closeTime);
+      if (close !== null) CLOSE_MIN = close;
+    }
+    renderPickup();
+    if (openSlot) renderSheet();
+  },
+  function (err) {
+    console.error("Could not read settings, using defaults.", err);
+  }
+);
+
+function price(f) {
+  if (f.price == null) return null;
+  return Math.round(f.price * (100 - (f.discount || 0)) / 100);
+}
+
+function priceLabel(f) {
+  if (f.price == null) return "Market price";
+  return price(f) + " Tk";
+}
+
+function cancelLabel(f) {
+  const m = f.cancelMinutes || 0;
+  return m > 0 ? "Cancel within " + m + " min" : "Cannot cancel (made fresh)";
+}
+
 function cartItems() {
   return menu
     .filter(function (f) { return qty[f.id] > 0; })
-    .map(function (f) { return { name: f.name, qty: qty[f.id], price: price(f) }; });
+    .map(function (f) {
+      return { name: f.name, qty: qty[f.id], price: price(f), cancelMinutes: f.cancelMinutes || 0, slot: f.slot };
+    });
 }
- 
-// ---------- NEW: promo animation helpers ----------
+
+// ---------- promo animation helpers ----------
 const REDUCE = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
- 
+
 function confetti(el) {
   if (REDUCE || !el) return;
   const r = el.getBoundingClientRect();
@@ -175,7 +311,7 @@ function confetti(el) {
     setTimeout(function () { d.remove(); }, 1500);
   }
 }
- 
+
 // Counts a number up or down inside an element
 function countTo(el, to, suffix) {
   const from = el._v || 0;
@@ -191,7 +327,7 @@ function countTo(el, to, suffix) {
   void el.offsetWidth;
   el.classList.add("bump");
 }
- 
+
 // ---------- saved order IDs ----------
 function loadIds() {
   try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; }
@@ -210,7 +346,7 @@ function removeId(id) {
   delete live[id];
   renderMyOrders();
 }
- 
+
 // Move an order saved by the earlier version into the new list
 (function migrate() {
   const old = localStorage.getItem(OLD_KEY);
@@ -219,120 +355,193 @@ function removeId(id) {
     localStorage.removeItem(OLD_KEY);
   }
 })();
- 
+
 // ---------- status helpers ----------
-function stepsHtml(status) {
-  const idx = status === "Done" ? STEPS.length : STEPS.indexOf(status);
-  return '<div class="steps">' + STEPS.map(function (s, i) {
+function stepsHtml(o) {
+  const list = o.pickupAt ? STEPS_SCHEDULED : STEPS_NOW;
+  const status = o.status;
+  const idx = status === "Done" ? list.length : list.indexOf(status);
+  return '<div class="steps">' + list.map(function (s, i) {
     const cls = i < idx ? " done" : (i === idx ? " now" : "");
     return '<div class="step' + cls + '"><span>' + (i + 1) + '</span>' + s + '</div>';
   }).join("") + '</div>';
 }
- 
-function statusMessage(status) {
-  if (status === "Ready") return "Ready! Please collect your food.";
-  if (status === "Preparing") return "Your food is being prepared.";
-  if (status === "Done") return "Thank you! Order collected.";
-  if (status === "Cancelled") return "This order was cancelled.";
-  return "Waiting. Estimated " + waitMinutes() + " min.";
+
+function statusMessage(o) {
+  if (o.status === "Scheduled") return "Scheduled for " + hm12(o.pickupAt.toMillis()) + ". Staff will prepare it in time.";
+  if (o.status === "Ready") return "Ready! Please collect your food.";
+  if (o.status === "Preparing") return "Your food is being prepared.";
+  if (o.status === "Done") return "Thank you! Order collected.";
+  if (o.status === "Cancelled") return "This order was cancelled.";
+  return "Waiting. Your food is in the queue.";
 }
- 
+
 function itemsText(o) {
   return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
 }
- 
-// ---------- cancel timer ----------
-function cancelBoxHtml(o) {
-  if (o.status !== "Received" || !o.cancelUntil) return "";
-  return '<div class="cancel-box">' +
-    '<div class="muted">You can cancel this order for</div>' +
-    '<div class="cancel-timer" data-cancel-until="' + o.cancelUntil.toMillis() + '">--:--</div>' +
-    '<div class="cancel-bar"><i></i></div>' +
-    '<button class="cancel-btn small" data-cancel-id="' + o.id + '">Cancel order</button>' +
-    '<p class="cancel-note">Free cancel until the timer ends or staff starts preparing.</p>' +
-    '</div>';
+
+// A scheduled order can be cancelled until staff is told. A now-order can be cancelled
+// only inside its own window (set per item). Fresh food cannot be cancelled at all.
+function canCancel(o) {
+  if (!o.cancelable) return false;
+  if (o.status === "Scheduled") return true;
+  if (o.status === "Received" && o.cancelUntil) return o.cancelUntil.toMillis() > Date.now();
+  return false;
 }
- 
+
+// ---------- cancel box ----------
+function cancelBoxHtml(o) {
+  if (o.status === "Cancelled" || o.status === "Done") return "";
+  if (!o.cancelable) return '<p class="cancel-note">This order contains fresh food, so it cannot be cancelled.</p>';
+  if (o.status === "Preparing" || o.status === "Ready") return '<p class="cancel-note">Staff has started your food. Cancel is closed.</p>';
+  if (o.status === "Scheduled") {
+    return '<div class="cancel-box"><div class="muted">You can cancel until ' + hm12(o.pickupAt.toMillis() - LEAD_MIN * 60000) + '</div>' +
+      '<button class="cancel-btn small" data-cancel-id="' + o.id + '">Cancel order</button></div>';
+  }
+  if (o.status === "Received" && o.cancelUntil) {
+    return '<div class="cancel-box">' +
+      '<div class="muted">You can cancel this order for</div>' +
+      '<div class="cancel-timer" data-cancel-until="' + o.cancelUntil.toMillis() + '" data-total="' + (o.cancelMinutes * 60) + '">--:--</div>' +
+      '<div class="cancel-bar"><i></i></div>' +
+      '<button class="cancel-btn small" data-cancel-id="' + o.id + '">Cancel order</button>' +
+      '<p class="cancel-note">Free cancel until the timer ends or staff starts preparing.</p>' +
+      '</div>';
+  }
+  return '<p class="cancel-note">Cancel window closed.</p>';
+}
+
 function tickCancelTimers() {
   const now = Date.now();
   document.querySelectorAll("[data-cancel-until]").forEach(function (el) {
     const end = Number(el.dataset.cancelUntil);
+    const total = Number(el.dataset.total) || 1;
     const left = Math.max(0, Math.floor((end - now) / 1000));
     const m = Math.floor(left / 60), s = left % 60;
     el.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
     const box = el.parentElement;
     const bar = box.querySelector(".cancel-bar > i");
-    if (bar) bar.style.width = Math.min(100, left / (CANCEL_MINUTES * 60) * 100) + "%";
+    if (bar) bar.style.width = Math.min(100, left / total * 100) + "%";
     if (left <= 0) {
       const btn = box.querySelector("button");
       if (btn) btn.disabled = true;
-      box.querySelector(".cancel-note").textContent = "Cancel window closed. Staff has started your food.";
+      const note = box.querySelector(".cancel-note");
+      if (note) note.textContent = "Cancel window closed. Staff has started your food.";
     }
   });
 }
 setInterval(tickCancelTimers, 1000);
- 
+
 // ---------- Menu ----------
 onSnapshot(query(collection(db, "menu"), orderBy("order")),
   function (snap) {
     menu = snap.docs
       .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-      .filter(function (f) { return f.available !== false; });
-    drawMenu();
+      .filter(function (f) { return f.available !== false && f.slot; });
+    renderCats();
+    if (openSlot) renderSheet();
     updateCart();
   },
   function (err) {
-    $("menu-list").innerHTML = '<div class="empty">Could not load the menu. Check the Firebase setup.</div>';
+    toast("Could not load the menu. Check the Firebase setup.");
     console.error(err);
   }
 );
- 
-function drawMenu() {
-  if (!menu.length) {
-    $("menu-list").innerHTML = '<div class="empty">No items right now. Please check again later.</div>';
-    return;
-  }
-  $("menu-list").innerHTML = menu.map(function (f) {
-    const p = price(f);
-    const priceHtml = f.discount > 0
-      ? '<s class="muted">' + f.price + ' Tk</s> <b>' + p + ' Tk</b> <span class="badge">' + f.discount + '% off</span>'
-      : '<b>' + f.price + ' Tk</b>';
-    const q = qty[f.id] || 0;
-    return '<div class="item">' +
-      '<div><div class="name">' + esc(f.name) + '</div><div>' + priceHtml + '</div></div>' +
-      '<div class="stepper">' +
-        '<button class="ghost small" data-act="dec" data-id="' + f.id + '">-</button>' +
-        '<span>' + q + '</span>' +
-        '<button class="small" data-act="inc" data-id="' + f.id + '">+</button>' +
-      '</div></div>';
-  }).join("");
+
+function categoryCount(slot) {
+  return menu.filter(function (f) { return f.slot === slot; })
+    .reduce(function (a, f) { return a + (qty[f.id] || 0); }, 0);
 }
- 
-$("menu-list").addEventListener("click", function (e) {
+
+function renderCats() {
+  ["morning", "lunch", "fast"].forEach(function (slot) {
+    const n = categoryCount(slot);
+    const b = document.querySelector('[data-badge="' + slot + '"]');
+    b.textContent = n;
+    b.classList.toggle("on", n > 0);
+  });
+}
+
+document.querySelectorAll("[data-cat]").forEach(function (b) {
+  b.addEventListener("click", function () {
+    openSlot = b.dataset.cat;
+    $("sheet-ov").hidden = false;
+    renderSheet();
+  });
+});
+
+function closeSheet() {
+  openSlot = null;
+  $("sheet-ov").hidden = true;
+}
+$("sheet-close").addEventListener("click", closeSheet);
+$("sheet-done").addEventListener("click", closeSheet);
+$("sheet-ov").addEventListener("click", function (e) { if (e.target === $("sheet-ov")) closeSheet(); });
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeSheet(); });
+
+function renderSheet() {
+  if (!openSlot) return;
+  $("sheet-title").textContent = SLOT_NAMES[openSlot];
+  $("sheet-sub").textContent = SLOT_SUB[openSlot] + ". Scroll to see all items.";
+  const items = menu.filter(function (f) { return f.slot === openSlot; });
+  $("sheet-list").innerHTML = items.length
+    ? items.map(function (f) {
+        const q = qty[f.id] || 0;
+        return '<div class="item">' +
+          '<div><div class="name">' + esc(f.name) + '</div>' +
+          '<div class="muted">' + priceLabel(f) + ' · ' + cancelLabel(f) + '</div></div>' +
+          '<div class="stepper">' +
+            '<button class="ghost small" data-act="dec" data-id="' + f.id + '">-</button>' +
+            '<span>' + q + '</span>' +
+            '<button class="small" data-act="inc" data-id="' + f.id + '">+</button>' +
+          '</div></div>';
+      }).join("")
+    : '<div class="empty">No items in this section right now.</div>';
+  updateSheetTotal();
+}
+
+function updateSheetTotal() {
+  const t = cartTotals();
+  $("sheet-total").textContent = t.count
+    ? t.count + " item(s) · Tk " + t.sub + (t.market ? " + " + t.market + " market-price" : "")
+    : "Nothing selected yet";
+}
+
+$("sheet-list").addEventListener("click", function (e) {
   const b = e.target.closest("button[data-act]");
   if (!b) return;
   const id = b.dataset.id;
   const cur = qty[id] || 0;
   qty[id] = b.dataset.act === "inc" ? Math.min(cur + 1, 20) : Math.max(cur - 1, 0);
   if (qty[id] === 0) delete qty[id];
-  drawMenu();
+  renderSheet();
+  renderCats();
   updateCart();
 });
- 
-// Cart bar shows the final price (after promo). The totals box shows the breakdown.
-function updateCart() {
-  const items = cartItems();
-  const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
-  const sub = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
-  const promoAmt = applied ? Math.round(sub * applied.percent / 100) : 0;
-  const total = sub - promoAmt;
-  $("cart-text").textContent = count
-    ? count + " item(s), " + total + " Tk" + (promoAmt ? " (promo applied)" : "")
-    : "No items selected";
-  $("order-btn").disabled = count === 0;
-  drawTotals(count, sub, promoAmt, total);
+
+function cartTotals() {
+  let count = 0, sub = 0, market = 0;
+  menu.forEach(function (f) {
+    const q = qty[f.id] || 0;
+    if (!q) return;
+    count += q;
+    if (f.price == null) market += q;
+    else sub += price(f) * q;
+  });
+  return { count: count, sub: sub, market: market };
 }
- 
+
+// Cart bar shows the final price (after promo). Totals box shows the breakdown.
+function updateCart() {
+  const t = cartTotals();
+  const promoAmt = applied ? Math.round(t.sub * applied.percent / 100) : 0;
+  const total = t.sub - promoAmt;
+  $("cart-text").textContent = t.count
+    ? t.count + " item(s), Tk " + total + (t.market ? " + market-price items" : "") + (promoAmt ? " (promo applied)" : "")
+    : "No items selected";
+  $("order-btn").disabled = t.count === 0;
+  drawTotals(t.count, t.sub, promoAmt, total);
+}
+
 function drawTotals(count, sub, promoAmt, total) {
   $("totals").hidden = count === 0;
   if (!count) { $("t-sub")._v = 0; $("t-total")._v = 0; return; }
@@ -345,8 +554,66 @@ function drawTotals(count, sub, promoAmt, total) {
   }
   countTo($("t-total"), total, " Tk");
 }
- 
-// ---------- NEW: promo code ----------
+
+// ---------- Pickup time ----------
+// Every window of 15 minutes can hold WINDOW_CAP orders. We count active orders per window.
+function windowStart(ms) { return Math.floor(ms / WINDOW_MS) * WINDOW_MS; }
+
+function windowCount(ms) {
+  const w = windowStart(ms);
+  return activeOrders.filter(function (o) {
+    return o.pickupAt && windowStart(o.pickupAt.toMillis()) === w;
+  }).length;
+}
+
+// Pickup times are only offered inside canteen hours (OPEN_MIN to CLOSE_MIN, Dhaka time).
+function pickupOptions() {
+  const out = [];
+  const nowMs = Date.now();
+  let t = Math.ceil((nowMs + LEAD_MIN * 60000) / STEP_MS) * STEP_MS;
+  const last = nowMs + AHEAD_MIN * 60000;
+  while (t <= last) {
+    const m = dhakaMinutes(t);
+    if (m >= OPEN_MIN && m < CLOSE_MIN) out.push(t);
+    t += STEP_MS;
+  }
+  return out;
+}
+
+function renderPickup() {
+  const sel = $("pickup"), keep = sel.value;
+  const options = pickupOptions();
+  let html = '<option value="now">As soon as possible</option>';
+  options.forEach(function (ms) {
+    const n = windowCount(ms);
+    const full = n >= WINDOW_CAP;
+    html += '<option value="' + ms + '"' + (full ? " disabled" : "") + '>' +
+      hm12(ms) + "  (" + n + "/" + WINDOW_CAP + (full ? ", full" : "") + ")</option>";
+  });
+  sel.innerHTML = html;
+  if (keep && Array.from(sel.options).some(function (o) { return o.value === keep && !o.disabled; })) sel.value = keep;
+
+  if (sel.value === "now") {
+    $("pickup-note").textContent = options.length
+      ? "Your order goes to the counter right away."
+      : "Pre-order times are not open right now. Canteen hours: " + hm12(OPEN_MIN * 60000) + " to " + hm12(CLOSE_MIN * 60000) + ".";
+  } else {
+    $("pickup-note").textContent = "Your order goes to the counter " + LEAD_MIN + " minutes before " + hm12(Number(sel.value)) + ".";
+  }
+}
+$("pickup").addEventListener("change", renderPickup);
+
+// Keeps the pickup list up to date as time passes and orders come in
+onSnapshot(query(collection(db, "orders"), where("status", "in", ["Scheduled", "Received", "Preparing"])),
+  function (snap) {
+    activeOrders = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    renderPickup();
+  },
+  function (err) { console.error(err); }
+);
+setInterval(renderPickup, 30000);
+
+// ---------- Promo code ----------
 function drawCoupon() {
   const slot = $("coupon-slot");
   if (!applied) { slot.innerHTML = ""; return; }
@@ -358,18 +625,18 @@ function drawCoupon() {
     '</div>' +
     '<button class="ghost small" id="promo-remove" style="margin-bottom:12px">Remove code</button>';
 }
- 
+
 function clearPromo() {
   applied = null;
   $("promo-input").value = "";
   drawCoupon();
   updateCart();
 }
- 
+
 $("coupon-slot").addEventListener("click", function (e) {
   if (e.target.closest("#promo-remove")) clearPromo();
 });
- 
+
 $("promo-apply").addEventListener("click", async function () {
   const btn = this;
   if (btn.classList.contains("loading")) return;
@@ -378,7 +645,7 @@ $("promo-apply").addEventListener("click", async function () {
   const code = $("promo-input").value.trim().toUpperCase();
   if (!code) { err.textContent = "Type a promo code first."; return; }
   if (applied) { err.textContent = "A promo code is already applied. Remove it to use another."; return; }
- 
+
   btn.classList.add("loading");
   let found = null;
   try {
@@ -395,7 +662,7 @@ $("promo-apply").addEventListener("click", async function () {
     return;
   }
   btn.classList.remove("loading");
- 
+
   if (!found) {
     err.textContent = "This promo code is not valid or has expired.";
     const inp = $("promo-input");
@@ -404,7 +671,7 @@ $("promo-apply").addEventListener("click", async function () {
     inp.classList.add("shake");
     return;
   }
- 
+
   applied = { code: code, percent: found.percent };
   $("promo-input").value = "";
   drawCoupon();
@@ -416,7 +683,7 @@ $("promo-apply").addEventListener("click", async function () {
     setTimeout(function () { m.classList.remove("slam"); }, 450);
   }, 650);
 });
- 
+
 // ---------- Rush radar ----------
 onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "Preparing"])),
   function (snap) {
@@ -430,7 +697,7 @@ onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "P
   },
   function (err) { console.error(err); }
 );
- 
+
 // ---------- Your orders (all active orders from this browser) ----------
 function renderMyOrders() {
   const ids = Object.keys(live);
@@ -442,15 +709,16 @@ function renderMyOrders() {
         '<small>Your token</small>' +
         '<div class="tok">' + o.token + '</div>' +
         '<div class="muted">' + esc(itemsText(o)) + '</div>' +
+        (o.pickupAt ? '<div class="muted small">Pickup at ' + hm12(o.pickupAt.toMillis()) + '</div>' : '') +
       '</div>' +
-      stepsHtml(o.status) +
+      stepsHtml(o) +
       cancelBoxHtml(o) +
-      '<p class="track-msg">' + statusMessage(o.status) + '</p>' +
+      '<p class="track-msg">' + statusMessage(o) + '</p>' +
     '</div>';
   }).join("");
   tickCancelTimers();
 }
- 
+
 function watch(id) {
   if (watching[id]) return;
   watching[id] = onSnapshot(doc(db, "orders", id),
@@ -470,14 +738,14 @@ function watch(id) {
     function (err) { console.error(err); }
   );
 }
- 
-// ---------- Cancel an order (only while Received and inside 15 min) ----------
+
+// ---------- Cancel an order ----------
 $("my-orders").addEventListener("click", async function (e) {
   const b = e.target.closest("button[data-cancel-id]");
   if (!b) return;
   const id = b.dataset.cancelId;
   const o = live[id];
-  if (!o || o.status !== "Received" || o.cancelUntil.toMillis() <= Date.now()) {
+  if (!o || !canCancel(o)) {
     toast("This order can no longer be cancelled.");
     return;
   }
@@ -487,28 +755,41 @@ $("my-orders").addEventListener("click", async function (e) {
     await updateDoc(doc(db, "orders", id), { status: "Cancelled" });
     toast("Order cancelled.");
   } catch (err) {
-    toast("Could not cancel. The 15 minute window may have passed.");
+    toast("Could not cancel. Please try again.");
     b.disabled = false;
     console.error(err);
   }
 });
- 
+
 // ---------- Place order ----------
 $("order-btn").addEventListener("click", async function () {
   const items = cartItems();
   if (!items.length) return;
- 
+
   const sid = $("student-id").value.trim();
   if (!sid) {
     toast("Please enter your student ID first.");
     return;
   }
- 
+
+  const sel = $("pickup").value;
+  const pickupMs = sel === "now" ? null : Number(sel);
+  if (pickupMs && windowCount(pickupMs) >= WINDOW_CAP) {
+    toast("That time is full. Please pick another time.");
+    renderPickup();
+    return;
+  }
+
   const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
-  const total = items.reduce(function (a, i) { return a + i.qty * i.price; }, 0);
+  const total = items.reduce(function (a, i) { return a + (i.price == null ? 0 : i.qty * i.price); }, 0);
+  const market = items.reduce(function (a, i) { return a + (i.price == null ? i.qty : 0); }, 0);
   // what the student would pay after the promo code (Green Points are taken off this)
   const afterPromo = total - (applied ? Math.round(total * applied.percent / 100) : 0);
- 
+
+  // An order can be cancelled only if every item allows it. The shortest window applies.
+  const cancelable = items.every(function (i) { return i.cancelMinutes > 0; });
+  const cancelMinutes = cancelable ? Math.min.apply(null, items.map(function (i) { return i.cancelMinutes; })) : 0;
+
   // [GREEN] Ask if the student wants to use Green Points coins as a discount.
   // The popup only opens when the student has coins. Closing it means no order is placed.
   let wantCoins = 0;
@@ -523,7 +804,7 @@ $("order-btn").addEventListener("click", async function () {
     }
   }
   const rules = wantCoins > 0 ? await getGreenRules() : null;
- 
+
   const btn = $("order-btn");
   btn.disabled = true;
   btn.textContent = "Placing...";
@@ -537,7 +818,7 @@ $("order-btn").addEventListener("click", async function () {
       coinsUsed = 0;
       // all reads first
       const cs = await tx.get(counterRef);
-      // NEW: check the promo again at the moment of ordering (staff may have turned it off)
+      // check the promo again at the moment of ordering (staff may have turned it off)
       let promoSnap = null;
       if (promoRef) {
         promoSnap = await tx.get(promoRef);
@@ -545,17 +826,24 @@ $("order-btn").addEventListener("click", async function () {
       }
       // [GREEN] read the wallet in the same transaction, so coins and order are saved together
       const wSnap = walletRef ? await tx.get(walletRef) : null;
- 
+
       const next = (cs.exists() ? cs.data().last : 0) + 1;
+      const now = Date.now();
       const data = {
         token: next,
-        items: items,
+        items: items.map(function (i) {
+          return { name: i.name, qty: i.qty, price: i.price, slot: i.slot, cancelMinutes: i.cancelMinutes };
+        }),
         count: count,
         total: total,
+        market: market,
         studentId: sid,
-        status: "Received",
+        status: pickupMs ? "Scheduled" : "Received",
         createdAt: serverTimestamp(),
-        cancelUntil: Timestamp.fromMillis(Date.now() + CANCEL_MINUTES * 60 * 1000)
+        pickupAt: pickupMs ? Timestamp.fromMillis(pickupMs) : null,
+        cancelable: cancelable,
+        cancelMinutes: cancelMinutes,
+        cancelUntil: (!pickupMs && cancelable) ? Timestamp.fromMillis(now + cancelMinutes * 60000) : null
       };
       let payable = total;
       if (promoSnap) {
@@ -607,8 +895,9 @@ $("order-btn").addEventListener("click", async function () {
     applied = null;
     $("promo-input").value = "";
     drawCoupon();
-    drawMenu();
+    renderCats();
     updateCart();
+    renderPickup();
     watch(orderRef.id);
     toast(coinsUsed ? "Order placed! Green Points saved " + (coinsUsed * rules.coinTk) + " Tk." : "Order placed!");
   } catch (err) {
@@ -623,7 +912,7 @@ $("order-btn").addEventListener("click", async function () {
   btn.textContent = "Place pre-order";
   updateCart();
 });
- 
+
 // ---------- Check any token ----------
 $("lookup-btn").addEventListener("click", async function () {
   const n = parseInt($("lookup-token").value, 10);
@@ -634,18 +923,18 @@ $("lookup-btn").addEventListener("click", async function () {
       $("lookup-result").innerHTML = '<p class="muted">Token ' + n + ' not found.</p>';
       return;
     }
-    const o = snap.docs[0].data();
+    const o = Object.assign({ id: snap.docs[0].id }, snap.docs[0].data());
     $("lookup-result").innerHTML =
       '<div class="ticket-big"><small>Token</small><div class="tok">' + o.token + '</div>' +
       '<div class="muted">' + esc(itemsText(o)) + '</div></div>' +
-      stepsHtml(o.status) +
-      '<p class="track-msg">' + statusMessage(o.status) + '</p>';
+      stepsHtml(o) +
+      '<p class="track-msg">' + statusMessage(o) + '</p>';
   } catch (err) {
     toast("Could not check the token. Try again.");
     console.error(err);
   }
 });
- 
+
 // ---------- Check all orders by student ID (today) ----------
 $("sid-lookup-btn").addEventListener("click", async function () {
   const sid = $("sid-lookup").value.trim();
@@ -663,11 +952,11 @@ $("sid-lookup-btn").addEventListener("click", async function () {
     const found = snap.docs
       .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
       .sort(function (a, b) { return (b.token || 0) - (a.token || 0); });
- 
+
     $("sid-result").innerHTML = found.map(function (o) {
       const body = o.status === "Cancelled"
         ? '<p class="track-msg">This order was cancelled.</p>'
-        : stepsHtml(o.status) + '<p class="track-msg">' + statusMessage(o.status) + '</p>';
+        : stepsHtml(o) + '<p class="track-msg">' + statusMessage(o) + '</p>';
       return '<div class="card">' +
         '<div class="ticket-big">' +
           '<small>Token</small>' +
@@ -682,9 +971,12 @@ $("sid-lookup-btn").addEventListener("click", async function () {
     console.error(err);
   }
 });
- 
+
 // ---------- Start: reconnect every order saved in this browser ----------
 loadIds().forEach(watch);
+renderCats();
+renderPickup();
+updateCart();
 </script>
 </body>
 </html>

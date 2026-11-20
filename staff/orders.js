@@ -1,10 +1,10 @@
 // staff/orders.js
-// Orders panel: live board (Received / Preparing / Ready), queue stats,
-// completed list, End of day button, and the Past daily reports (archive + detail popup).
+// Orders panel: live board (Received / Preparing / Ready), scheduled pickups,
+// queue stats, completed list, End of day button, and the Past daily reports (archive + detail popup).
 // Plugs into staff/core.js. Reads state.orders, state.reports and state.greenSubs.
 import {
   collection, doc, updateDoc, setDoc, addDoc, getDocs, onSnapshot,
-  query, orderBy, limit, writeBatch, serverTimestamp
+  query, orderBy, limit, where, writeBatch, runTransaction, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   db, state, $, esc, toast, todayKey, timeText, itemsText, studentIdHtml,
@@ -14,9 +14,23 @@ import {
 const STATUS_FLOW = ["Received", "Preparing", "Ready", "Done"];
 const NEXT_LABEL = { Received: "Start preparing", Preparing: "Mark ready", Ready: "Mark collected" };
 
+// How many minutes before pickup the counter gets a scheduled order.
+// Read from settings/planner (field: leadMinutes). Falls back to 10 if not set.
+const DEFAULT_LEAD_MIN = 10;
+let LEAD_MIN = DEFAULT_LEAD_MIN;
+const TICK_MS = 15000;
+
+const fmt12 = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Dhaka", hour: "numeric", minute: "2-digit", hour12: true });
+function hm12(ms) { return fmt12.format(new Date(ms)); }
+
+let scheduled = [];   // orders with status "Scheduled", waiting to be released
+let freshIds = {};    // orders just released (highlighted for a minute)
+
 // ---------- start after login ----------
 onLogin(function () {
+  watchSettings();
   watchReports();
+  watchScheduled();
   onSnapshot(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50)),
     function (snap) {
       state.orders = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
@@ -24,11 +38,26 @@ onLogin(function () {
     },
     function (err) { toast("Could not load orders."); console.error(err); }
   );
+  setInterval(tick, TICK_MS);
 });
 
 onRender(renderOrders);
 onAction("advance", function (id) { advanceOrder(id); });
+onAction("releaseNow", function (id) { releaseOne(id, false); });
 $("eod-btn").addEventListener("click", endOfDay);
+
+// ---------- settings (shared with the student page and planner) ----------
+function watchSettings() {
+  onSnapshot(doc(db, "settings", "planner"),
+    function (snap) {
+      const v = snap.exists() ? Number(snap.data().leadMinutes) : 0;
+      LEAD_MIN = v > 0 ? v : DEFAULT_LEAD_MIN;
+      renderScheduled();
+      releaseDue();
+    },
+    function (err) { console.error(err); }
+  );
+}
 
 // ---------- helpers ----------
 function setBar(id, pct) {
@@ -52,11 +81,105 @@ export function greenLineHtml(o) {
   return '<div class="gline' + cls + '">Green Points · ' + parts + '</div>';
 }
 
+// ---------- scheduled pickups ----------
+function watchScheduled() {
+  onSnapshot(query(collection(db, "orders"), where("status", "==", "Scheduled")),
+    function (snap) {
+      scheduled = snap.docs
+        .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .filter(function (o) { return o.pickupAt; })
+        .sort(function (a, b) { return a.pickupAt.toMillis() - b.pickupAt.toMillis(); });
+      releaseDue();
+      renderScheduled();
+    },
+    function (err) { console.error(err); }
+  );
+}
+
+function tick() {
+  releaseDue();
+  renderScheduled();
+}
+
+// Releases every scheduled order whose release time has come
+function releaseDue() {
+  const t = Date.now();
+  scheduled.forEach(function (o) {
+    if (t >= o.pickupAt.toMillis() - LEAD_MIN * 60000) releaseOne(o.id, true);
+  });
+}
+
+// Moves one scheduled order to "Received" (the counter starts on it).
+// Uses a transaction, so if two staff screens release the same order, it happens only once.
+async function releaseOne(id, auto) {
+  let token = null;
+  try {
+    const ref = doc(db, "orders", id);
+    await runTransaction(db, async function (tx) {
+      token = null;
+      const snap = await tx.get(ref);
+      if (!snap.exists() || snap.data().status !== "Scheduled") return;
+      const d = snap.data();
+      const now = Date.now();
+      token = d.token;
+      tx.update(ref, {
+        status: "Received",
+        releasedAt: Timestamp.fromMillis(now),
+        cancelUntil: d.cancelable ? Timestamp.fromMillis(now + (Number(d.cancelMinutes) || 0) * 60000) : null
+      });
+    });
+    if (token) {
+      freshIds[id] = true;
+      setTimeout(function () { delete freshIds[id]; render(); }, 60000);
+      toast((auto ? "Scheduled order released: " : "Released early: ") + "Token #" + token);
+    }
+  } catch (err) {
+    console.error(err);
+    if (!auto) toast("Could not release the order. Try again.");
+  }
+}
+
+function ensureSchedBox() {
+  let box = $("sched-box");
+  if (box) return box;
+  box = document.createElement("div");
+  box.id = "sched-box";
+  box.className = "card";
+  box.style.marginBottom = "14px";
+  // Placed above the three status columns. Check the position on the page after pasting.
+  const anchor = $("col-Received").closest(".board") || $("col-Received").parentElement;
+  anchor.parentNode.insertBefore(box, anchor);
+  return box;
+}
+
+function renderScheduled() {
+  const box = ensureSchedBox();
+  const head = '<h2 style="margin:0 0 8px">Scheduled pickups (' + scheduled.length + ')</h2>';
+  if (!scheduled.length) {
+    box.innerHTML = head + '<div class="empty">No scheduled pickups right now.</div>';
+    return;
+  }
+  box.innerHTML = head + scheduled.map(function (o) {
+    const items = itemsText(o);
+    const releaseAt = hm12(o.pickupAt.toMillis() - LEAD_MIN * 60000);
+    return '<div class="list-row">' +
+      '<span><span class="hl-token">#' + o.token + '</span> ' +
+        '<span class="hl-id">' + esc(o.studentId || "") + '</span> ' +
+        esc(items) +
+        '<div class="muted small">Pickup ' + hm12(o.pickupAt.toMillis()) + ' · goes to counter at ' + releaseAt + '</div>' +
+      '</span>' +
+      '<button class="ghost small" data-act="releaseNow" data-id="' + o.id + '">Release now</button>' +
+    '</div>';
+  }).join("");
+}
+
 // ---------- drawing ----------
 function renderOrders() {
   const orders = state.orders;
-  // Cancelled orders are not active: they leave the board, queue and waiting time
-  const active = orders.filter(function (o) { return o.status !== "Done" && o.status !== "Cancelled"; });
+  // Scheduled orders are not in the queue yet. Cancelled and Done are not active either.
+  const active = orders.filter(function (o) {
+    return o.status !== "Done" && o.status !== "Cancelled" && o.status !== "Scheduled";
+  });
   const queue = active.filter(function (o) { return o.status === "Received" || o.status === "Preparing"; }).length;
   const ready = active.filter(function (o) { return o.status === "Ready"; }).length;
   const wait = 3 + queue * 2;
@@ -95,12 +218,15 @@ function renderOrders() {
 }
 
 function ticketHtml(o) {
-  return '<div class="ticket ' + o.status + '">' +
+  const fresh = freshIds[o.id] ? " fresh" : "";
+  const when = o.pickupAt ? '<div class="meta">Pickup ' + hm12(o.pickupAt.toMillis()) + '</div>' : "";
+  return '<div class="ticket ' + o.status + fresh + '">' +
     '<div class="stub"><small>Token</small><b>' + o.token + '</b></div>' +
     '<div class="body">' +
       '<div>' + studentIdHtml(o) + '</div>' +
       '<div class="items">' + esc(itemsText(o)) + '</div>' +
       '<div class="meta">' + o.total + ' Tk, ordered at ' + timeText(o) + '</div>' +
+      when +
       greenLineHtml(o) +
       '<button class="small" data-act="advance" data-id="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>' +
     '</div></div>';
@@ -111,7 +237,13 @@ function advanceOrder(id) {
   if (!o) return;
   const next = STATUS_FLOW[STATUS_FLOW.indexOf(o.status) + 1];
   if (!next) return;
-  updateDoc(doc(db, "orders", id), { status: next }).catch(function (err) {
+  const change = { status: next };
+  // Once the food is being made, the student can no longer cancel
+  if (next === "Preparing") {
+    change.cancelable = false;
+    change.cancelUntil = null;
+  }
+  updateDoc(doc(db, "orders", id), change).catch(function (err) {
     toast("Could not update the order.");
     console.error(err);
   });
@@ -137,9 +269,13 @@ async function endOfDay() {
     const s = d.data().status;
     return s !== "Done" && s !== "Cancelled";
   }).length;
+  const scheduledCount = all.docs.filter(function (d) { return d.data().status === "Scheduled"; }).length;
   let msg = "Save today's report and remove all " + all.size + " orders? Token numbers will restart from 1.";
   if (activeCount > 0) {
     msg += "\n\n" + activeCount + " order(s) are still active and will also be removed.";
+  }
+  if (scheduledCount > 0) {
+    msg += "\n" + scheduledCount + " of them are scheduled pickups that have not reached the counter yet.";
   }
   if (!confirm(msg)) return;
   if (!confirm("This cannot be undone. Are you sure?")) return;
@@ -157,7 +293,7 @@ async function endOfDay() {
     totalSales += Number(o.total) || 0;
     (o.items || []).forEach(function (i) {
       const qty = Number(i.qty) || 0;
-      const amount = i.price !== undefined ? qty * (Number(i.price) || 0) : null;
+      const amount = i.price !== undefined && i.price !== null ? qty * (Number(i.price) || 0) : null;
       itemCount[i.name] = (itemCount[i.name] || 0) + qty;
       if (!itemDetail[i.name]) itemDetail[i.name] = { name: i.name, qty: 0, amount: 0, priced: true };
       itemDetail[i.name].qty += qty;

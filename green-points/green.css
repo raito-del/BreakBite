@@ -221,7 +221,7 @@
 }
 .green-page .items {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   gap: 8px;
   margin-top: 8px;
 }
@@ -229,9 +229,10 @@
   background: #fff;
   border: 2px solid var(--gp-ink);
   border-radius: 12px;
-  padding: 9px;
+  padding: 10px 9px;
+  min-height: 118px;
   box-shadow: var(--gp-shadow-s);
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 6px;
   cursor: pointer;
   transition: transform .25s var(--gp-ease), box-shadow .25s var(--gp-ease), background .3s, border-color .3s;
 }
@@ -242,7 +243,20 @@
   border-color: var(--gp-leaf);
   box-shadow: 3px 3px 0 var(--gp-leaf);
 }
-.green-page .item .name { font-weight: 800; font-size: 13px; line-height: 1.25; min-height: 32px; }
+.green-page .item .name {
+  display: inline-block;
+  align-self: flex-start;
+  font-weight: 800; font-size: 13px; line-height: 1.25;
+  border: 2px solid var(--gp-ink);
+  border-radius: 999px;
+  padding: 2px 9px;
+  background: var(--gp-mint);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.green-page .items .item:nth-child(4n+2) .name { background: var(--gp-yellow); }
+.green-page .items .item:nth-child(4n+3) .name { background: #ffd0a8; }
+.green-page .items .item:nth-child(4n+4) .name { background: #e3d9ff; }
 .green-page .coinpill {
   display: inline-block;
   background: var(--gp-turmeric);
