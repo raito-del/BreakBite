@@ -76,22 +76,141 @@ function ensureMenuExtras() {
   btn.parentNode.insertBefore(wrap, btn);
 }
 
-// Adds the timing and ordering inputs to the planner settings form. All save to settings/planner.
+// ---------- planner settings extras: clock format, canteen times, ordering rules ----------
+// Times are always stored as 24-hour "HH:MM" in Firestore. The screen shows them
+// in 12-hour (AM/PM) or 24-hour format, chosen by the staff member.
+const TIME_KEYS = [
+  { key: "openTime", label: "Canteen opens" },
+  { key: "morningEnd", label: "Morning ends" },
+  { key: "lunchEnd", label: "Lunch ends" },
+  { key: "closeTime", label: "Canteen closes" }
+];
+
+const SETTINGS_DEFAULTS = {
+  minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5,
+  timeFormat: "12",
+  openTime: "08:30", morningEnd: "11:00", lunchEnd: "16:00", closeTime: "16:00",
+  leadMinutes: 10, windowCap: 20, aheadMinutes: 180
+};
+
+const HM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+
+let activeFormat = "12";   // "12" or "24": what the time fields currently show
+let timeVals = {};         // key -> "HH:MM" (24-hour), last known good values
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+
+function normalizeHM(text) {
+  const m = HM_RE.exec(String(text || "").trim());
+  if (!m) return null;
+  return pad2(Number(m[1])) + ":" + m[2];
+}
+
+function toMin(hm) {
+  const p = hm.split(":").map(Number);
+  return p[0] * 60 + p[1];
+}
+
+// "16:05" -> { h: 4, m: 5, ap: "PM" }
+function to12(hm) {
+  const p = hm.split(":").map(Number);
+  return { h: (p[0] % 12) || 12, m: p[1], ap: p[0] < 12 ? "AM" : "PM" };
+}
+
+// 12-hour parts -> "16:05". Returns null if the parts are not valid.
+function from12(h, m, ap) {
+  if (!(h >= 1 && h <= 12) || !(m >= 0 && m <= 59)) return null;
+  const h24 = (h % 12) + (ap === "PM" ? 12 : 0);
+  return pad2(h24) + ":" + pad2(m);
+}
+
+// Builds the four time fields for the current format
+function renderTimeFields() {
+  const box = $("tf-fields");
+  box.innerHTML = TIME_KEYS.map(function (k) {
+    const v = timeVals[k.key] || SETTINGS_DEFAULTS[k.key];
+    let control;
+    if (activeFormat === "24") {
+      control = '<input type="text" id="tf-' + k.key + '" maxlength="5" placeholder="HH:MM" value="' + v + '" style="width:100px">';
+    } else {
+      const t = to12(v);
+      let hOpts = "", mOpts = "";
+      for (let h = 1; h <= 12; h++) {
+        hOpts += '<option value="' + h + '"' + (h === t.h ? " selected" : "") + '>' + h + '</option>';
+      }
+      for (let m = 0; m < 60; m++) {
+        mOpts += '<option value="' + m + '"' + (m === t.m ? " selected" : "") + '>' + pad2(m) + '</option>';
+      }
+      control =
+        '<select id="tf-' + k.key + '-h" aria-label="Hour">' + hOpts + '</select> : ' +
+        '<select id="tf-' + k.key + '-m" aria-label="Minute">' + mOpts + '</select> ' +
+        '<select id="tf-' + k.key + '-ap" aria-label="AM or PM">' +
+          '<option value="AM"' + (t.ap === "AM" ? " selected" : "") + '>AM</option>' +
+          '<option value="PM"' + (t.ap === "PM" ? " selected" : "") + '>PM</option>' +
+        '</select>';
+    }
+    return '<div style="margin:6px 0"><span style="font-size:13px;font-weight:700;display:inline-block;width:150px">' +
+      k.label + '</span> ' + control + '</div>';
+  }).join("");
+}
+
+// Reads one time from the screen in the current format. Returns "HH:MM" or null.
+function readTime(key) {
+  if (activeFormat === "24") {
+    const el = $("tf-" + key);
+    return el ? normalizeHM(el.value) : null;
+  }
+  const h = $("tf-" + key + "-h"), m = $("tf-" + key + "-m"), ap = $("tf-" + key + "-ap");
+  if (!h || !m || !ap) return null;
+  return from12(Number(h.value), Number(m.value), ap.value);
+}
+
+// Keeps what was typed, so switching format does not lose the values
+function snapshotTimes() {
+  TIME_KEYS.forEach(function (k) {
+    const v = readTime(k.key);
+    if (v) timeVals[k.key] = v;
+  });
+}
+
+// Reads all four times. Returns null if any is invalid.
+function readAllTimes() {
+  const out = {};
+  for (let i = 0; i < TIME_KEYS.length; i++) {
+    const v = readTime(TIME_KEYS[i].key);
+    if (!v) return null;
+    out[TIME_KEYS[i].key] = v;
+  }
+  return out;
+}
+
+// Adds the clock format, time fields and ordering inputs before the Save button.
 function ensurePlannerExtras() {
   const save = $("planner-save");
-  if (!save || $("pl-open")) return;
+  if (!save || $("pl-format")) return;
   const wrap = document.createElement("div");
   wrap.className = "menu-extras";
-  wrap.setAttribute("style", "display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;");
+  wrap.setAttribute("style", "display:flex;flex-direction:column;gap:8px;margin-bottom:12px;");
   wrap.innerHTML =
-    '<label style="font-size:13px">Canteen opens (HH:MM) <input id="pl-open" type="text" placeholder="08:30" maxlength="5" style="width:90px"></label>' +
-    '<label style="font-size:13px">Canteen closes (HH:MM) <input id="pl-close" type="text" placeholder="16:00" maxlength="5" style="width:90px"></label>' +
-    '<label style="font-size:13px">Morning ends (HH:MM) <input id="pl-morning-end" type="text" placeholder="11:00" maxlength="5" style="width:90px"></label>' +
-    '<label style="font-size:13px">Lunch ends (HH:MM) <input id="pl-lunch-end" type="text" placeholder="16:00" maxlength="5" style="width:90px"></label>' +
-    '<label style="font-size:13px">Staff gets order before pickup (min) <input id="pl-lead" type="number" min="0" max="120" style="width:90px"></label>' +
-    '<label style="font-size:13px">Max orders per 15 min <input id="pl-cap" type="number" min="1" max="500" style="width:90px"></label>' +
-    '<label style="font-size:13px">Book ahead up to (min) <input id="pl-ahead" type="number" min="30" max="1440" style="width:90px"></label>';
+    '<label style="font-size:13px;font-weight:700">Clock format ' +
+      '<select id="pl-format" style="margin-left:8px">' +
+        '<option value="12">12-hour (AM/PM)</option>' +
+        '<option value="24">24-hour</option>' +
+      '</select></label>' +
+    '<div id="tf-fields"></div>' +
+    '<label style="font-size:13px">Staff gets order before pickup (min) ' +
+      '<input id="pl-lead" type="number" min="0" max="120" style="width:90px"></label>' +
+    '<label style="font-size:13px">Max orders per 15 min ' +
+      '<input id="pl-cap" type="number" min="1" max="500" style="width:90px"></label>' +
+    '<label style="font-size:13px">Book ahead up to (min) ' +
+      '<input id="pl-ahead" type="number" min="30" max="1440" style="width:90px"></label>';
   save.parentNode.insertBefore(wrap, save);
+
+  $("pl-format").addEventListener("change", function () {
+    snapshotTimes();
+    activeFormat = this.value;
+    renderTimeFields();
+  });
 }
 
 // ---------- menu ----------
@@ -272,6 +391,8 @@ function startDiscount() {
 }
 
 // ---------- promo codes ----------
+// Each code is one document in "promos", and the document ID is the code itself.
+// Fields: code, percent, active, used, createdAt  (the student page reads these)
 function watchPromos() {
   onSnapshot(collection(db, "promos"),
     function (snap) {
@@ -333,7 +454,7 @@ async function addPromo() {
       btn.classList.remove("loading");
       return;
     }
-    freshPromo = code;
+    freshPromo = code; // set before the write so the first redraw animates the new row
     await setDoc(ref, {
       code: code,
       percent: percent,
@@ -373,25 +494,7 @@ function deletePromo(id) {
   });
 }
 
-// ---------- settings: break planner, canteen timing, ordering rules ----------
-const SETTINGS_DEFAULTS = {
-  minBreak: 10, maxBreak: 45, step: 5, defaultEat: 5,
-  morningEnd: "11:00", lunchEnd: "16:00",
-  openTime: "08:30", closeTime: "16:00",
-  leadMinutes: 10, windowCap: 20, aheadMinutes: 180
-};
-const HM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
-
-function normalizeHM(text) {
-  const m = HM_RE.exec(String(text || "").trim());
-  if (!m) return null;
-  return String(Number(m[1])).padStart(2, "0") + ":" + m[2];
-}
-function toMin(s) {
-  const p = s.split(":").map(Number);
-  return p[0] * 60 + p[1];
-}
-
+// ---------- settings: load and save ----------
 async function loadPlannerSettings() {
   try {
     const snap = await getDoc(doc(db, "settings", "planner"));
@@ -400,13 +503,16 @@ async function loadPlannerSettings() {
     $("pl-max").value = s.maxBreak;
     $("pl-step").value = s.step;
     $("pl-default").value = s.defaultEat;
-    $("pl-open").value = s.openTime;
-    $("pl-close").value = s.closeTime;
-    $("pl-morning-end").value = s.morningEnd;
-    $("pl-lunch-end").value = s.lunchEnd;
     $("pl-lead").value = s.leadMinutes;
     $("pl-cap").value = s.windowCap;
     $("pl-ahead").value = s.aheadMinutes;
+
+    activeFormat = s.timeFormat === "24" ? "24" : "12";
+    $("pl-format").value = activeFormat;
+    TIME_KEYS.forEach(function (k) {
+      timeVals[k.key] = normalizeHM(s[k.key]) || SETTINGS_DEFAULTS[k.key];
+    });
+    renderTimeFields();
   } catch (err) {
     console.error(err);
   }
@@ -417,13 +523,10 @@ async function savePlannerSettings() {
   const maxBreak = parseInt($("pl-max").value, 10);
   const step = parseInt($("pl-step").value, 10);
   const defaultEat = parseInt($("pl-default").value, 10);
-  const openTime = normalizeHM($("pl-open").value);
-  const closeTime = normalizeHM($("pl-close").value);
-  const morningEnd = normalizeHM($("pl-morning-end").value);
-  const lunchEnd = normalizeHM($("pl-lunch-end").value);
   const leadMinutes = parseInt($("pl-lead").value, 10);
   const windowCap = parseInt($("pl-cap").value, 10);
   const aheadMinutes = parseInt($("pl-ahead").value, 10);
+  const times = readAllTimes();
 
   if (isNaN(minBreak) || isNaN(maxBreak) || minBreak < 1 || maxBreak <= minBreak) {
     toast("Longest break must be bigger than shortest break.");
@@ -433,15 +536,15 @@ async function savePlannerSettings() {
     toast("Step and default eat time must be at least 1.");
     return;
   }
-  if (!openTime || !closeTime || !morningEnd || !lunchEnd) {
-    toast("Canteen times must be in HH:MM format, for example 08:30 or 16:00.");
+  if (!times) {
+    toast("A canteen time is not valid. Check the hour, minute and AM/PM, or use HH:MM in 24-hour mode.");
     return;
   }
-  if (toMin(openTime) >= toMin(closeTime)) {
+  if (toMin(times.openTime) >= toMin(times.closeTime)) {
     toast("Canteen must open before it closes.");
     return;
   }
-  if (!(toMin(openTime) < toMin(morningEnd) && toMin(morningEnd) < toMin(lunchEnd))) {
+  if (!(toMin(times.openTime) < toMin(times.morningEnd) && toMin(times.morningEnd) < toMin(times.lunchEnd))) {
     toast("Order must be: opens, morning ends, lunch ends.");
     return;
   }
@@ -465,14 +568,16 @@ async function savePlannerSettings() {
       maxBreak: maxBreak,
       step: step,
       defaultEat: defaultEat,
-      openTime: openTime,
-      closeTime: closeTime,
-      morningEnd: morningEnd,
-      lunchEnd: lunchEnd,
+      timeFormat: activeFormat,
+      openTime: times.openTime,
+      morningEnd: times.morningEnd,
+      lunchEnd: times.lunchEnd,
+      closeTime: times.closeTime,
       leadMinutes: leadMinutes,
       windowCap: windowCap,
       aheadMinutes: aheadMinutes
     }, { merge: true });
+    timeVals = times;
     toast("Settings saved.");
   } catch (err) {
     toast("Could not save settings.");
