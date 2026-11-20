@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BreakBite - Canteen menu tool</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .seed-wrap { max-width: 640px; margin: 24px auto; padding: 0 14px; }
+    .seed-card { background: #fff; border: 2px solid #3b2314; border-radius: 14px; box-shadow: 4px 4px 0 #3b2314; padding: 16px; margin-bottom: 16px; }
+    .seed-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .seed-row button { min-width: 180px; }
+    .seed-danger { background: #b02a1a; }
+    .seed-log { font-size: 14px; line-height: 1.6; max-height: 340px; overflow: auto; }
+    .seed-ok { color: #4c8c4a; font-weight: 700; }
+    .seed-skip { color: #7a5a44; }
+    .seed-err { color: #b02a1a; font-weight: 700; }
+  </style>
+</head>
+<body>
+<main class="seed-wrap">
+  <div class="seed-card">
+    <h2>Canteen menu tool</h2>
+    <p class="muted">Staff must be logged in on the staff page first, in the same browser.</p>
+    <p id="status">Checking login...</p>
+    <div class="seed-row">
+      <button id="seed-btn" disabled>Add canteen menu</button>
+      <button id="remove-btn" class="seed-danger" disabled>Remove canteen menu</button>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:10px">
+      "Remove" deletes only the items from this canteen list (matched by name). Items you added yourself are not touched.
+    </p>
+  </div>
+  <div class="seed-card">
+    <div class="seed-log" id="log"></div>
+  </div>
+</main>
+
+<script type="module">
+import { db, auth } from "./firebase.js";
+import {
+  collection, getDocs, writeBatch, doc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Canteen menu from the board photo.
+// slot: morning | lunch | fast
+// price: Tk, or null for market price
+// cancel: cancel within this many minutes (0 = cannot cancel)
+const ITEMS = [
+  // সকালের নাস্তা (Morning)
+  { name: "Porota (পরোটা)", slot: "morning", price: 10, cancel: 3 },
+  { name: "Dim Mamlet (ডিম মামলেট)", slot: "morning", price: 20, cancel: 3 },
+  { name: "Shobji (সবজি)", slot: "morning", price: 10, cancel: 3 },
+  { name: "Dal (ডাল)", slot: "morning", price: 10, cancel: 3 },
+  { name: "Halua (হালুয়া)", slot: "morning", price: 30, cancel: 3 },
+  { name: "Khichuri + Dim (খিচুড়ি+ডিম)", slot: "morning", price: 50, cancel: 0 },
+  { name: "Khichuri + Murgi (খিচুড়ি+মুরগী)", slot: "morning", price: 60, cancel: 0 },
+  { name: "Lal Cha (লাল চা)", slot: "morning", price: 10, cancel: 0 },
+  { name: "Dudh Cha (দুধ চা)", slot: "morning", price: 20, cancel: 0 },
+  { name: "Singara (সিঙ্গাড়া)", slot: "morning", price: 10, cancel: 3 },
+  { name: "Piyaju (পিয়াজু)", slot: "morning", price: 10, cancel: 3 },
+  { name: "Dudh (দুধ)", slot: "morning", price: 20, cancel: 10 },
+  { name: "Doi (দই)", slot: "morning", price: 20, cancel: 10 },
+  { name: "Misti (মিষ্টি)", slot: "morning", price: 20, cancel: 10 },
+  { name: "Shahi Jilapi (শাহী জিলাপী)", slot: "morning", price: 20, cancel: 10 },
+  { name: "Shobji Roll (সবজি রোল)", slot: "morning", price: 20, cancel: 3 },
+  { name: "Burger (বার্গার)", slot: "morning", price: 60, cancel: 0 },
+  { name: "Moglai Regular (মোগলাই)", slot: "morning", price: 50, cancel: 0 },
+  { name: "Moglai Special (মোগলাই)", slot: "morning", price: 80, cancel: 0 },
+  { name: "Puri (পুরী)", slot: "morning", price: 10, cancel: 3 },
+  { name: "Chola (ছোলা)", slot: "morning", price: 10, cancel: 3 },
+  { name: "Samucha (সমুচা)", slot: "morning", price: 10, cancel: 3 },
+
+  // দুপুরের খাবার (Lunch)
+  { name: "Vat (ভাত)", slot: "lunch", price: 10, cancel: 0 },
+  { name: "Biryani Murgi+Dim (বিরানী (মুরগী+ডিম))", slot: "lunch", price: 100, cancel: 0 },
+  { name: "Desi Murgi (দেশী মুরগী)", slot: "lunch", price: 110, cancel: 0 },
+  { name: "Broiler Murgi (ব্রয়লার মুরগী)", slot: "lunch", price: 70, cancel: 0 },
+  { name: "Gorur Mangsho (গরুর মাংস)", slot: "lunch", price: 120, cancel: 0 },
+  { name: "Khasir Mangsho (খাসির মাংস)", slot: "lunch", price: 160, cancel: 0 },
+  { name: "Ruhi Mach (রুই মাছ)", slot: "lunch", price: 70, cancel: 0 },
+  { name: "Katla Mach (কাতল মাছ)", slot: "lunch", price: 70, cancel: 0 },
+  { name: "Chingri (চিংড়ি)", slot: "lunch", price: 50, cancel: 0 },
+  { name: "Nola Mach (নলা মাছ)", slot: "lunch", price: 60, cancel: 0 },
+  { name: "Tilapia Mach (তেলাপিয়া মাছ)", slot: "lunch", price: 50, cancel: 0 },
+  { name: "Sarputi Mach (সরপুটি মাছ)", slot: "lunch", price: 50, cancel: 0 },
+  { name: "Koi Mach (কৈই মাছ)", slot: "lunch", price: 50, cancel: 0 },
+  { name: "Shobji (সবজি)", slot: "lunch", price: 30, cancel: 0 },
+  { name: "Patla Dal (পাতলা ডাল)", slot: "lunch", price: 10, cancel: 0 },
+  { name: "Ranna Dim (রান্না ডিম)", slot: "lunch", price: 30, cancel: 0 },
+  { name: "Muri Ghonto (মুড়ি ঘন্ট)", slot: "lunch", price: 40, cancel: 0 },
+  { name: "Alu Bharta (আলু ভর্তা)", slot: "lunch", price: 10, cancel: 0 },
+  { name: "Mach Bharta (মাছ ভর্তা)", slot: "lunch", price: 20, cancel: 0 },
+  { name: "Shutki Bharta (শুটকি ভর্তা)", slot: "lunch", price: 20, cancel: 0 },
+  { name: "Kalojira Bharta (কালোজিরা ভর্তা)", slot: "lunch", price: 10, cancel: 0 },
+  { name: "Begun Bhaji/Bharta (বেগুন ভাজি/ভর্তা)", slot: "lunch", price: 10, cancel: 0 },
+
+  // ফাস্ট ফুড (Fast food, market price)
+  { name: "Biscuit (বিস্কুট)", slot: "fast", price: null, cancel: 15 },
+  { name: "Cake (কেক)", slot: "fast", price: null, cancel: 15 },
+  { name: "Chips (চিপস)", slot: "fast", price: null, cancel: 15 },
+  { name: "Cold Drink (কোল্ড ড্রিংকস)", slot: "fast", price: null, cancel: 15 }
+];
+
+const CANTEEN_NAMES = new Set(ITEMS.map(function (it) { return it.name.trim().toLowerCase(); }));
+
+const $ = function (id) { return document.getElementById(id); };
+function logLine(text, cls) {
+  const p = document.createElement("div");
+  p.className = cls || "";
+  p.textContent = text;
+  $("log").appendChild(p);
+}
+
+let signedIn = false;
+onAuthStateChanged(auth, function (user) {
+  signedIn = !!user;
+  $("status").textContent = user
+    ? "Logged in as " + user.email + ". Ready."
+    : "Not logged in. Open the staff page, log in, then come back to this page in the same browser.";
+  $("seed-btn").disabled = !user;
+  $("remove-btn").disabled = !user;
+});
+
+// ---------- add ----------
+$("seed-btn").addEventListener("click", async function () {
+  if (!signedIn) return;
+  const btn = $("seed-btn");
+  btn.disabled = true;
+  $("log").innerHTML = "";
+
+  try {
+    const snap = await getDocs(collection(db, "menu"));
+    const existing = new Set(snap.docs.map(function (d) {
+      return String(d.data().name || "").trim().toLowerCase();
+    }));
+
+    const batch = writeBatch(db);
+    const base = Date.now();
+    let added = 0, skipped = 0;
+
+    ITEMS.forEach(function (it, i) {
+      const key = it.name.trim().toLowerCase();
+      if (existing.has(key)) {
+        skipped++;
+        logLine("Skipped (already exists): " + it.name, "seed-skip");
+        return;
+      }
+      batch.set(doc(collection(db, "menu")), {
+        name: it.name,
+        price: it.price,
+        minutes: 5,
+        slot: it.slot,
+        cancelMinutes: it.cancel,
+        available: true,
+        discount: 0,
+        order: base + i
+      });
+      existing.add(key);
+      added++;
+      logLine("Added: " + it.name, "seed-ok");
+    });
+
+    if (added === 0) {
+      logLine("Nothing to add. All items already exist.", "seed-skip");
+    } else {
+      await batch.commit();
+    }
+    logLine("Done. Added " + added + ", skipped " + skipped + ".", "seed-ok");
+  } catch (err) {
+    logLine("Error: " + (err.message || err), "seed-err");
+    console.error(err);
+  }
+  btn.disabled = !signedIn;
+});
+
+// ---------- remove (only canteen items, matched by name) ----------
+$("remove-btn").addEventListener("click", async function () {
+  if (!signedIn) return;
+  if (!confirm("Remove all canteen items from the menu? Items you added yourself will stay.")) return;
+
+  const btn = $("remove-btn");
+  btn.disabled = true;
+  $("log").innerHTML = "";
+
+  try {
+    const snap = await getDocs(collection(db, "menu"));
+    const toDelete = snap.docs.filter(function (d) {
+      return CANTEEN_NAMES.has(String(d.data().name || "").trim().toLowerCase());
+    });
+
+    if (toDelete.length === 0) {
+      logLine("Nothing to remove. No canteen items found.", "seed-skip");
+    } else {
+      // Firestore allows up to 500 writes per batch
+      for (let i = 0; i < toDelete.length; i += 400) {
+        const batch = writeBatch(db);
+        toDelete.slice(i, i + 400).forEach(function (d) {
+          batch.delete(d.ref);
+          logLine("Removed: " + d.data().name, "seed-ok");
+        });
+        await batch.commit();
+      }
+    }
+    logLine("Done. Removed " + toDelete.length + " item(s).", "seed-ok");
+  } catch (err) {
+    logLine("Error: " + (err.message || err), "seed-err");
+    console.error(err);
+  }
+  btn.disabled = !signedIn;
+});
+</script>
+</body>
+</html>
