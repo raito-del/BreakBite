@@ -44,11 +44,8 @@
       border-top: 2px dashed #f0d7b8; padding-top: 10px; margin-top: 8px; flex-wrap: wrap;
     }
     .sub-line { font-size: 12px; color: #7a5a44; }
-    .cancel-chip { display: inline-block; font-size: 12px; font-weight: 800; border: 2px solid #3b2314; border-radius: 999px; padding: 1px 9px; background: #ffe08a; }
     .pickup-note { font-size: 12px; color: #7a5a44; margin-top: 6px; }
     .step.wait { opacity: .6; }
-    .top-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .top-row .tabs { flex: 1; }
   </style>
 </head>
 <body>
@@ -79,14 +76,6 @@
   </div>
 
   <div class="card">
-    <h2>Your student ID</h2>
-    <p class="muted">Staff uses this to find your order. It is not shown publicly.</p>
-    <div class="form-row">
-      <input type="text" id="student-id" placeholder="e.g. 26251037" maxlength="12">
-    </div>
-  </div>
-
-  <div class="card">
     <h2>When would you like to pick it up?</h2>
     <p class="muted">Get it now, or choose a time. The number in brackets is how many orders that time already has.</p>
     <select id="pickup" style="width:100%"></select>
@@ -103,7 +92,6 @@
     </div>
   </div>
 
-  <!-- promo code -->
   <div class="card">
     <h2>Promo code</h2>
     <p class="muted">Have a code? Enter it to get a discount.</p>
@@ -139,16 +127,6 @@
     </div>
     <div id="lookup-result"></div>
   </div>
-
-  <div class="card">
-    <h2>Check by student ID</h2>
-    <p class="muted">Enter your student ID to see all your orders from today.</p>
-    <div class="form-row">
-      <input type="text" id="sid-lookup" placeholder="Student ID" maxlength="12">
-      <button id="sid-lookup-btn">Show my orders</button>
-    </div>
-    <div id="sid-result"></div>
-  </div>
 </main>
 
 <!-- category popup -->
@@ -171,7 +149,7 @@
 
 <script type="module">
 import { db, auth } from "./firebase.js";
-import { studentEmail, isStudentEmail } from "./student-auth.js";
+import { isStudentEmail, studentIdFromEmail } from "./student-auth.js";
 import {
   collection, doc, onSnapshot, query, orderBy, where, getDocs, getDoc, runTransaction,
   serverTimestamp, Timestamp, updateDoc
@@ -179,65 +157,38 @@ import {
 import {
   onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-// [GREEN] rules and ID check from the Green Points core file
 import { getGreenRules, isValidStudentId } from "./green-points/green.js";
 
-// ---------- student login check ----------
-// Students must log in first. Without a student login, go to the login page.
-let currentStudentId = null;
-onAuthStateChanged(auth, function (user) {
-  if (!user || !isStudentEmail(user.email)) {
-    window.location.replace("student-login.html");
-    return;
-  }
-  // The ID is the part of the email before @breakbite.app
-  currentStudentId = String(user.email).split("@")[0];
-});
-
-$logoutBtn = null;
-document.addEventListener("DOMContentLoaded", function () {
-  const btn = document.getElementById("logout-btn");
-  if (btn) {
-    btn.addEventListener("click", function () {
-      signOut(auth).then(function () {
-        window.location.replace("student-login.html");
-      });
-    });
-  }
-});
-
-// [GREEN] The "Use Green Points?" popup lives in green-points/order-hook.js.
-// It is loaded on its own, so the order page still works if that file has a problem.
 let askUseCoins = null;
 import("./green-points/order-hook.js")
   .then(function (m) { askUseCoins = m.askUseCoins || null; })
   .catch(function (err) { console.error(err); });
 
 // ---------- settings for this page ----------
-// Defaults are used until settings/planner is read. Staff can change them there.
 const SLOT_NAMES = { morning: "Morning", lunch: "Lunch", fast: "Fast food" };
 const SLOT_SUB = { morning: "Breakfast items", lunch: "Rice and curry", fast: "Snacks and drinks" };
-const STEP_MS = 5 * 60000;          // pickup times every 5 minutes
-const WINDOW_MS = 15 * 60000;       // capacity is counted per 15-minute window
+const STEP_MS = 5 * 60000;
+const WINDOW_MS = 15 * 60000;
 const STEPS_SCHEDULED = ["Scheduled", "Received", "Preparing", "Ready"];
 const STEPS_NOW = ["Received", "Preparing", "Ready"];
-const KEY = "breakbite_orders";      // list of order IDs this browser placed
-const OLD_KEY = "breakbite_order";   // single ID used by the earlier version
+const KEY = "breakbite_orders";
+const OLD_KEY = "breakbite_order";
 
-let WINDOW_CAP = 20;     // orders allowed per 15-minute window   (settings: windowCap)
-let LEAD_MIN = 10;       // staff is told this many minutes before pickup (settings: leadMinutes)
-let AHEAD_MIN = 180;     // students can book up to this far ahead (settings: aheadMinutes)
-let OPEN_MIN = 8 * 60 + 30;   // canteen opens 8:30 AM Dhaka   (settings: openTime)
-let CLOSE_MIN = 16 * 60;      // canteen closes 4:00 PM Dhaka  (settings: closeTime)
+let WINDOW_CAP = 20;
+let LEAD_MIN = 10;
+let AHEAD_MIN = 180;
+let OPEN_MIN = 8 * 60 + 30;
+let CLOSE_MIN = 16 * 60;
 
-let menu = [];          // available items with a slot
-let qty = {};           // { itemId: qty }
+let menu = [];
+let qty = {};
 let pending = 0;
-let applied = null;     // promo applied to the cart, { code, percent }
-let live = {};          // orderId -> latest order data
-let watching = {};      // orderId -> unsubscribe function
-let activeOrders = [];  // every active order, used to count pickup windows
+let applied = null;
+let live = {};
+let watching = {};
+let activeOrders = [];
 let openSlot = null;
+let SID = "";
 
 const $ = function (id) { return document.getElementById(id); };
 
@@ -255,14 +206,29 @@ function toast(msg) {
   toast.timer = setTimeout(function () { t.hidden = true; }, 2500);
 }
 
-// Time helpers. Times are shown in 12-hour format, Dhaka time.
+// ---------- login check and logout ----------
+onAuthStateChanged(auth, function (user) {
+  if (!user || !isStudentEmail(user.email)) {
+    window.location.replace("student-login.html");
+    return;
+  }
+  SID = studentIdFromEmail(user.email);
+  startPage();
+});
+
+$("logout-btn").addEventListener("click", function () {
+  signOut(auth).then(function () {
+    window.location.replace("student-login.html");
+  });
+});
+
+// ---------- time helpers ----------
 const fmt12 = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Dhaka", hour: "numeric", minute: "2-digit", hour12: true });
 function hm12(ms) { return fmt12.format(new Date(ms)); }
 function dhakaMinutes(ms) {
   const d = new Date(ms + 6 * 3600000);
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
-// "08:30" -> 510. Returns null if the text is not HH:MM.
 function parseHM(s) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
   if (!m) return null;
@@ -272,8 +238,6 @@ function parseHM(s) {
 }
 
 // ---------- settings from Firestore (settings/planner) ----------
-// Missing or invalid values keep the defaults above. If Firestore refuses the read,
-// the page keeps working with the defaults.
 onSnapshot(doc(db, "settings", "planner"),
   function (snap) {
     if (snap.exists()) {
@@ -292,26 +256,21 @@ onSnapshot(doc(db, "settings", "planner"),
     renderPickup();
     if (openSlot) renderSheet();
   },
-  function (err) {
-    console.error("Could not read settings, using defaults.", err);
-  }
+  function (err) { console.error("Could not read settings, using defaults.", err); }
 );
 
 function price(f) {
   if (f.price == null) return null;
   return Math.round(f.price * (100 - (f.discount || 0)) / 100);
 }
-
 function priceLabel(f) {
   if (f.price == null) return "Market price";
   return price(f) + " Tk";
 }
-
 function cancelLabel(f) {
   const m = f.cancelMinutes || 0;
   return m > 0 ? "Cancel within " + m + " min" : "Cannot cancel (made fresh)";
 }
-
 function cartItems() {
   return menu
     .filter(function (f) { return qty[f.id] > 0; })
@@ -343,7 +302,6 @@ function confetti(el) {
   }
 }
 
-// Counts a number up or down inside an element
 function countTo(el, to, suffix) {
   const from = el._v || 0;
   el._v = to;
@@ -377,8 +335,6 @@ function removeId(id) {
   delete live[id];
   renderMyOrders();
 }
-
-// Move an order saved by the earlier version into the new list
 (function migrate() {
   const old = localStorage.getItem(OLD_KEY);
   if (old) {
@@ -390,14 +346,12 @@ function removeId(id) {
 // ---------- status helpers ----------
 function stepsHtml(o) {
   const list = o.pickupAt ? STEPS_SCHEDULED : STEPS_NOW;
-  const status = o.status;
-  const idx = status === "Done" ? list.length : list.indexOf(status);
+  const idx = o.status === "Done" ? list.length : list.indexOf(o.status);
   return '<div class="steps">' + list.map(function (s, i) {
     const cls = i < idx ? " done" : (i === idx ? " now" : "");
     return '<div class="step' + cls + '"><span>' + (i + 1) + '</span>' + s + '</div>';
   }).join("") + '</div>';
 }
-
 function statusMessage(o) {
   if (o.status === "Scheduled") return "Scheduled for " + hm12(o.pickupAt.toMillis()) + ". Staff will prepare it in time.";
   if (o.status === "Ready") return "Ready! Please collect your food.";
@@ -406,21 +360,15 @@ function statusMessage(o) {
   if (o.status === "Cancelled") return "This order was cancelled.";
   return "Waiting. Your food is in the queue.";
 }
-
 function itemsText(o) {
   return o.items.map(function (i) { return i.name + " x" + i.qty; }).join(", ");
 }
-
-// A scheduled order can be cancelled until staff is told. A now-order can be cancelled
-// only inside its own window (set per item). Fresh food cannot be cancelled at all.
 function canCancel(o) {
   if (!o.cancelable) return false;
   if (o.status === "Scheduled") return true;
   if (o.status === "Received" && o.cancelUntil) return o.cancelUntil.toMillis() > Date.now();
   return false;
 }
-
-// ---------- cancel box ----------
 function cancelBoxHtml(o) {
   if (o.status === "Cancelled" || o.status === "Done") return "";
   if (!o.cancelable) return '<p class="cancel-note">This order contains fresh food, so it cannot be cancelled.</p>';
@@ -440,7 +388,6 @@ function cancelBoxHtml(o) {
   }
   return '<p class="cancel-note">Cancel window closed.</p>';
 }
-
 function tickCancelTimers() {
   const now = Date.now();
   document.querySelectorAll("[data-cancel-until]").forEach(function (el) {
@@ -463,26 +410,27 @@ function tickCancelTimers() {
 setInterval(tickCancelTimers, 1000);
 
 // ---------- Menu ----------
-onSnapshot(query(collection(db, "menu"), orderBy("order")),
-  function (snap) {
-    menu = snap.docs
-      .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-      .filter(function (f) { return f.available !== false && f.slot; });
-    renderCats();
-    if (openSlot) renderSheet();
-    updateCart();
-  },
-  function (err) {
-    toast("Could not load the menu. Check the Firebase setup.");
-    console.error(err);
-  }
-);
+function startMenu() {
+  onSnapshot(query(collection(db, "menu"), orderBy("order")),
+    function (snap) {
+      menu = snap.docs
+        .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+        .filter(function (f) { return f.available !== false && f.slot; });
+      renderCats();
+      if (openSlot) renderSheet();
+      updateCart();
+    },
+    function (err) {
+      toast("Could not load the menu. Check the Firebase setup.");
+      console.error(err);
+    }
+  );
+}
 
 function categoryCount(slot) {
   return menu.filter(function (f) { return f.slot === slot; })
     .reduce(function (a, f) { return a + (qty[f.id] || 0); }, 0);
 }
-
 function renderCats() {
   ["morning", "lunch", "fast"].forEach(function (slot) {
     const n = categoryCount(slot);
@@ -499,7 +447,6 @@ document.querySelectorAll("[data-cat]").forEach(function (b) {
     renderSheet();
   });
 });
-
 function closeSheet() {
   openSlot = null;
   $("sheet-ov").hidden = true;
@@ -529,14 +476,12 @@ function renderSheet() {
     : '<div class="empty">No items in this section right now.</div>';
   updateSheetTotal();
 }
-
 function updateSheetTotal() {
   const t = cartTotals();
   $("sheet-total").textContent = t.count
     ? t.count + " item(s) · Tk " + t.sub + (t.market ? " + " + t.market + " market-price" : "")
     : "Nothing selected yet";
 }
-
 $("sheet-list").addEventListener("click", function (e) {
   const b = e.target.closest("button[data-act]");
   if (!b) return;
@@ -560,8 +505,6 @@ function cartTotals() {
   });
   return { count: count, sub: sub, market: market };
 }
-
-// Cart bar shows the final price (after promo). Totals box shows the breakdown.
 function updateCart() {
   const t = cartTotals();
   const promoAmt = applied ? Math.round(t.sub * applied.percent / 100) : 0;
@@ -572,7 +515,6 @@ function updateCart() {
   $("order-btn").disabled = t.count === 0;
   drawTotals(t.count, t.sub, promoAmt, total);
 }
-
 function drawTotals(count, sub, promoAmt, total) {
   $("totals").hidden = count === 0;
   if (!count) { $("t-sub")._v = 0; $("t-total")._v = 0; return; }
@@ -587,17 +529,13 @@ function drawTotals(count, sub, promoAmt, total) {
 }
 
 // ---------- Pickup time ----------
-// Every window of 15 minutes can hold WINDOW_CAP orders. We count active orders per window.
 function windowStart(ms) { return Math.floor(ms / WINDOW_MS) * WINDOW_MS; }
-
 function windowCount(ms) {
   const w = windowStart(ms);
   return activeOrders.filter(function (o) {
     return o.pickupAt && windowStart(o.pickupAt.toMillis()) === w;
   }).length;
 }
-
-// Pickup times are only offered inside canteen hours (OPEN_MIN to CLOSE_MIN, Dhaka time).
 function pickupOptions() {
   const out = [];
   const nowMs = Date.now();
@@ -610,7 +548,6 @@ function pickupOptions() {
   }
   return out;
 }
-
 function renderPickup() {
   const sel = $("pickup"), keep = sel.value;
   const options = pickupOptions();
@@ -634,16 +571,6 @@ function renderPickup() {
 }
 $("pickup").addEventListener("change", renderPickup);
 
-// Keeps the pickup list up to date as time passes and orders come in
-onSnapshot(query(collection(db, "orders"), where("status", "in", ["Scheduled", "Received", "Preparing"])),
-  function (snap) {
-    activeOrders = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-    renderPickup();
-  },
-  function (err) { console.error(err); }
-);
-setInterval(renderPickup, 30000);
-
 // ---------- Promo code ----------
 function drawCoupon() {
   const slot = $("coupon-slot");
@@ -656,18 +583,15 @@ function drawCoupon() {
     '</div>' +
     '<button class="ghost small" id="promo-remove" style="margin-bottom:12px">Remove code</button>';
 }
-
 function clearPromo() {
   applied = null;
   $("promo-input").value = "";
   drawCoupon();
   updateCart();
 }
-
 $("coupon-slot").addEventListener("click", function (e) {
   if (e.target.closest("#promo-remove")) clearPromo();
 });
-
 $("promo-apply").addEventListener("click", async function () {
   const btn = this;
   if (btn.classList.contains("loading")) return;
@@ -716,18 +640,20 @@ $("promo-apply").addEventListener("click", async function () {
 });
 
 // ---------- Rush radar ----------
-onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "Preparing"])),
-  function (snap) {
-    pending = snap.size;
-    let text;
-    if (pending >= 10) text = "High rush. Pre-order to save time.";
-    else if (pending >= 5) text = "Medium rush. Pre-order if you can.";
-    else text = "Low rush. Good time to visit.";
-    $("rush-text").textContent = text + " " + pending + " order(s) waiting.";
-    $("rush-num").textContent = pending;
-  },
-  function (err) { console.error(err); }
-);
+function startRush() {
+  onSnapshot(query(collection(db, "orders"), where("status", "in", ["Received", "Preparing"])),
+    function (snap) {
+      pending = snap.size;
+      let text;
+      if (pending >= 10) text = "High rush. Pre-order to save time.";
+      else if (pending >= 5) text = "Medium rush. Pre-order if you can.";
+      else text = "Low rush. Good time to visit.";
+      $("rush-text").textContent = text + " " + pending + " order(s) waiting.";
+      $("rush-num").textContent = pending;
+    },
+    function (err) { console.error(err); }
+  );
+}
 
 // ---------- Your orders (all active orders from this browser) ----------
 function renderMyOrders() {
@@ -749,7 +675,6 @@ function renderMyOrders() {
   }).join("");
   tickCancelTimers();
 }
-
 function watch(id) {
   if (watching[id]) return;
   watching[id] = onSnapshot(doc(db, "orders", id),
@@ -770,7 +695,6 @@ function watch(id) {
   );
 }
 
-// ---------- Cancel an order ----------
 $("my-orders").addEventListener("click", async function (e) {
   const b = e.target.closest("button[data-cancel-id]");
   if (!b) return;
@@ -797,9 +721,9 @@ $("order-btn").addEventListener("click", async function () {
   const items = cartItems();
   if (!items.length) return;
 
-  const sid = $("student-id").value.trim();
-  if (!sid) {
-    toast("Please enter your student ID first.");
+  const sid = SID;
+  if (!isValidStudentId(sid)) {
+    toast("Please log in first.");
     return;
   }
 
@@ -814,15 +738,11 @@ $("order-btn").addEventListener("click", async function () {
   const count = items.reduce(function (a, i) { return a + i.qty; }, 0);
   const total = items.reduce(function (a, i) { return a + (i.price == null ? 0 : i.qty * i.price); }, 0);
   const market = items.reduce(function (a, i) { return a + (i.price == null ? i.qty : 0); }, 0);
-  // what the student would pay after the promo code (Green Points are taken off this)
   const afterPromo = total - (applied ? Math.round(total * applied.percent / 100) : 0);
 
-  // An order can be cancelled only if every item allows it. The shortest window applies.
   const cancelable = items.every(function (i) { return i.cancelMinutes > 0; });
   const cancelMinutes = cancelable ? Math.min.apply(null, items.map(function (i) { return i.cancelMinutes; })) : 0;
 
-  // [GREEN] Ask if the student wants to use Green Points coins as a discount.
-  // The popup only opens when the student has coins. Closing it means no order is placed.
   let wantCoins = 0;
   if (askUseCoins && isValidStudentId(sid)) {
     try {
@@ -847,15 +767,12 @@ $("order-btn").addEventListener("click", async function () {
     const walletRef = wantCoins > 0 ? doc(db, "wallets", sid) : null;
     await runTransaction(db, async function (tx) {
       coinsUsed = 0;
-      // all reads first
       const cs = await tx.get(counterRef);
-      // check the promo again at the moment of ordering (staff may have turned it off)
       let promoSnap = null;
       if (promoRef) {
         promoSnap = await tx.get(promoRef);
         if (!promoSnap.exists() || !promoSnap.data().active) throw new Error("PROMO_INVALID");
       }
-      // [GREEN] read the wallet in the same transaction, so coins and order are saved together
       const wSnap = walletRef ? await tx.get(walletRef) : null;
 
       const next = (cs.exists() ? cs.data().last : 0) + 1;
@@ -887,8 +804,6 @@ $("order-btn").addEventListener("click", async function () {
         payable = total - amt;
         tx.update(promoRef, { used: (promoSnap.data().used || 0) + 1 });
       }
-      // [GREEN] coins used = the smaller of: what the student asked, the balance,
-      // the % limit and the price. The balance is checked again here, not trusted from the popup.
       if (wSnap) {
         const w = wSnap.exists() ? wSnap.data() : {};
         const balance = w.balance || 0;
@@ -966,48 +881,23 @@ $("lookup-btn").addEventListener("click", async function () {
   }
 });
 
-// ---------- Check all orders by student ID (today) ----------
-$("sid-lookup-btn").addEventListener("click", async function () {
-  const sid = $("sid-lookup").value.trim();
-  if (!sid) {
-    toast("Please enter your student ID.");
-    return;
-  }
-  try {
-    const snap = await getDocs(query(collection(db, "orders"), where("studentId", "==", sid)));
-    if (snap.empty) {
-      $("sid-result").innerHTML = '<p class="muted">No orders found for this student ID today.</p>';
-      return;
-    }
-    // Newest first, sorted in the browser so no extra Firestore index is needed
-    const found = snap.docs
-      .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-      .sort(function (a, b) { return (b.token || 0) - (a.token || 0); });
-
-    $("sid-result").innerHTML = found.map(function (o) {
-      const body = o.status === "Cancelled"
-        ? '<p class="track-msg">This order was cancelled.</p>'
-        : stepsHtml(o) + '<p class="track-msg">' + statusMessage(o) + '</p>';
-      return '<div class="card">' +
-        '<div class="ticket-big">' +
-          '<small>Token</small>' +
-          '<div class="tok">' + o.token + '</div>' +
-          '<div class="muted">' + esc(itemsText(o)) + '</div>' +
-        '</div>' +
-        body +
-      '</div>';
-    }).join("");
-  } catch (err) {
-    toast("Could not load your orders. Try again.");
-    console.error(err);
-  }
-});
-
-// ---------- Start: reconnect every order saved in this browser ----------
-loadIds().forEach(watch);
-renderCats();
-renderPickup();
-updateCart();
+// ---------- start the page after login ----------
+function startPage() {
+  startMenu();
+  startRush();
+  onSnapshot(query(collection(db, "orders"), where("status", "in", ["Scheduled", "Received", "Preparing"])),
+    function (snap) {
+      activeOrders = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      renderPickup();
+    },
+    function (err) { console.error(err); }
+  );
+  setInterval(renderPickup, 30000);
+  loadIds().forEach(watch);
+  renderCats();
+  renderPickup();
+  updateCart();
+}
 </script>
 </body>
 </html>
