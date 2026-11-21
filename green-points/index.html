@@ -20,6 +20,7 @@
   }
   .gp-nav a:hover { background: #fff8ec; }
   .gp-nav a.active { background: #f2b33d; border-color: #3b2314; box-shadow: 2px 2px 0 #3b2314; }
+  .gp-logout { margin-left: auto; }
 </style>
 </head>
 <body>
@@ -30,21 +31,18 @@
   <a href="index.html" class="active">Green Points</a>
   <a href="../planner.html">Break Planner</a>
   <a href="../home.html">Home</a>
+  <button id="gp-logout" class="xs ghost gp-logout">Log out</button>
 </header>
 
 <main class="green-page">
 
-  <!-- top: title, student ID, balance -->
+  <!-- top: title and balance (student comes from the login) -->
   <div class="card">
     <div class="g-top">
       <div>
         <div class="eyebrow">Green Points</div>
         <h1>Bring it back, earn coins.</h1>
-        <div class="idrow">
-          <input id="gp-sid" type="text" placeholder="Student ID" maxlength="12" autocomplete="off" aria-label="Student ID">
-          <button id="gp-login" class="xs">Log in</button>
-        </div>
-        <p class="hint" id="gp-note" style="margin:6px 0 0"></p>
+        <p class="hint" id="gp-note" style="margin:6px 0 0">Checking your login...</p>
       </div>
       <div class="balance">
         <div class="lbl">Your balance</div>
@@ -82,26 +80,11 @@
   <div class="two">
     <div class="card">
       <h3>Your submissions</h3>
-      <div id="gp-subs" class="muted small">Log in to see your submissions.</div>
+      <div id="gp-subs" class="muted small">Loading...</div>
     </div>
     <div class="card">
       <h3>Coin history</h3>
-      <div id="gp-hist" class="muted small">Log in to see your coin history.</div>
-    </div>
-  </div>
-
-  <!-- student ID notice: opens when Submit is pressed without an ID -->
-  <div class="gp-overlay" id="gp-id-modal" role="dialog" aria-modal="true" aria-labelledby="gp-id-title">
-    <div class="gp-sheet">
-      <button class="ghost xs x" id="gp-id-close" aria-label="Close">Close</button>
-      <h2 id="gp-id-title" style="margin-top:4px">Student ID needed</h2>
-      <p class="muted small" id="gp-id-msg" style="margin:4px 0 10px">Enter your student ID to continue.</p>
-      <input id="gp-id-input" type="text" placeholder="e.g. 26251037" maxlength="12" autocomplete="off" style="width:100%;font-size:16px">
-      <p class="err" id="gp-id-err"></p>
-      <div class="choice">
-        <button class="ghost xs" id="gp-id-later">Not now</button>
-        <button class="xs" id="gp-id-continue">Continue</button>
-      </div>
+      <div id="gp-hist" class="muted small">Loading...</div>
     </div>
   </div>
 
@@ -109,6 +92,11 @@
 </main>
 
 <script type="module">
+import { auth } from "../firebase.js";
+import { isStudentEmail, studentIdFromEmail } from "../student-auth.js";
+import {
+  onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getGreenRules, getGreenItems, getWallet, submitGreen, dailyItemsUsed,
   getMySubmissions, getWalletHistory, isValidStudentId
@@ -116,7 +104,6 @@ import {
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const mask = id => id.length <= 6 ? id : id.slice(0, 4) + "****" + id.slice(-2);
 const ERRORS = {
   INVALID_SID: "Enter a valid student ID (4 to 12 letters or numbers).",
   NO_ITEMS: "Pick at least one item.",
@@ -127,14 +114,13 @@ const ERRORS = {
 
 let rules = { coinTk: 1, maxPct: 30, dailyCap: 20 };
 let items = [];
-let SID = "";
-let picks = {};              // { itemId: qty }  (UI only)
+let SID = "";               // set from the student login, never typed by hand
+let picks = {};             // { itemId: qty }  (UI only)
 let wallet = { balance: 0, issued: 0, redeemed: 0 };
-let used = 0;                // items submitted today (not rejected)
+let used = 0;               // items submitted today (not rejected)
 let subs = [];
 let hist = [];
 let lastCode = null;
-let pendingSubmit = false;
 let busy = false;
 
 function toast(msg) {
@@ -145,17 +131,22 @@ function toast(msg) {
   toast.t = setTimeout(() => t.classList.remove("show"), 2400);
 }
 
-function openId(msg) {
-  $("gp-id-msg").textContent = msg || "Enter your student ID to continue.";
-  $("gp-id-input").value = SID;
-  $("gp-id-err").textContent = "";
-  $("gp-id-modal").classList.add("open");
-  setTimeout(() => $("gp-id-input").focus(), 50);
-}
-function closeId() {
-  $("gp-id-modal").classList.remove("open");
-  pendingSubmit = false;
-}
+// ---------- login check ----------
+// Green Points uses the same student login as the order page.
+onAuthStateChanged(auth, async function (user) {
+  if (!user || !isStudentEmail(user.email)) {
+    window.location.replace("../student-login.html");
+    return;
+  }
+  SID = studentIdFromEmail(user.email);
+  await init();
+});
+
+$("gp-logout").addEventListener("click", function () {
+  signOut(auth).then(function () {
+    window.location.replace("../student-login.html");
+  });
+});
 
 // ---------- load ----------
 async function init() {
@@ -166,7 +157,7 @@ async function init() {
     console.error(err);
     toast("Could not load Green Points. Check your connection.");
   }
-  renderAll();
+  await refresh();
 }
 
 async function refresh() {
@@ -191,17 +182,8 @@ function pickTotals() {
 }
 
 // ---------- submit ----------
-function trySubmit() {
-  if (pickTotals().count === 0 || busy) return;
-  if (!isValidStudentId(SID)) {
-    pendingSubmit = true;
-    openId("Enter your student ID first. Then your items will be sent to the counter.");
-    return;
-  }
-  doSubmit();
-}
-
 async function doSubmit() {
+  if (pickTotals().count === 0 || busy) return;
   busy = true;
   renderDock();
   $("gp-err").textContent = "";
@@ -219,6 +201,7 @@ async function doSubmit() {
     renderDock();
   }
 }
+$("gp-submit").addEventListener("click", doSubmit);
 
 // ---------- rendering ----------
 function renderAll() {
@@ -275,7 +258,7 @@ function renderDock() {
   $("gp-cap-fill").style.width = Math.min(100, Math.round(used / cap * 100)) + "%";
   $("gp-cap-bar").classList.toggle("over", over);
   $("gp-dock-txt").textContent = t.count ? t.count + " item(s) · " + t.coins + " coins" : "Tap an item to add it";
-  $("gp-submit").disabled = t.count === 0 || busy || over;
+  $("gp-submit").disabled = t.count === 0 || busy || over || !ok;
   if (over) $("gp-err").textContent = "Daily limit reached for this student.";
 }
 
@@ -312,7 +295,7 @@ function renderCode() {
     : "";
 }
 
-// ---------- events ----------
+// ---------- item buttons ----------
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-act]");
   if (!b) return;
@@ -329,36 +312,6 @@ document.addEventListener("click", e => {
     renderItems(); renderDock();
   }
 });
-
-$("gp-submit").addEventListener("click", trySubmit);
-
-$("gp-login").addEventListener("click", () => {
-  const v = $("gp-sid").value.trim();
-  if (!isValidStudentId(v)) { toast("Enter a valid student ID"); return; }
-  SID = v; lastCode = null;
-  toast("Logged in as " + mask(v));
-  refresh();
-});
-$("gp-sid").addEventListener("keydown", e => { if (e.key === "Enter") $("gp-login").click(); });
-
-$("gp-id-continue").addEventListener("click", () => {
-  const v = $("gp-id-input").value.trim();
-  if (!isValidStudentId(v)) { $("gp-id-err").textContent = "Enter a valid student ID (4 to 12 characters)."; return; }
-  SID = v;
-  $("gp-sid").value = v;
-  $("gp-id-modal").classList.remove("open");
-  const resume = pendingSubmit;
-  pendingSubmit = false;
-  refresh();
-  if (resume) doSubmit();
-});
-$("gp-id-input").addEventListener("keydown", e => { if (e.key === "Enter") $("gp-id-continue").click(); });
-$("gp-id-later").addEventListener("click", closeId);
-$("gp-id-close").addEventListener("click", closeId);
-$("gp-id-modal").addEventListener("click", e => { if (e.target === $("gp-id-modal")) closeId(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeId(); });
-
-init();
 </script>
 </body>
 </html>

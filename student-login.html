@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BreakBite - Student login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">BreakBite</div>
+</header>
+
+<main class="narrow">
+  <div class="card">
+    <h1>Student login</h1>
+    <p class="muted">Use your student ID and your own password. New here? Create an account once.</p>
+
+    <label class="field">Student ID
+      <input type="text" id="sid" maxlength="12" autocomplete="username" placeholder="e.g. 26251037">
+    </label>
+
+    <label class="field">Password
+      <input type="password" id="pw" autocomplete="current-password" placeholder="At least 6 characters">
+    </label>
+
+    <div class="form-row">
+      <button id="login-btn">Log in</button>
+      <button id="signup-btn" class="ghost">Create account</button>
+    </div>
+
+    <p class="error" id="msg" role="alert"></p>
+  </div>
+</main>
+
+<script type="module">
+import { auth } from "./firebase.js";
+import { studentEmail, isStudentEmail } from "./student-auth.js";
+import {
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const $ = function (id) { return document.getElementById(id); };
+
+function showMsg(text) {
+  $("msg").textContent = text;
+}
+
+// Checks the ID and password fields. Returns the login email and password, or null.
+function readForm() {
+  const email = studentEmail($("sid").value);
+  if (!email) {
+    showMsg("Student ID must be 4 to 12 letters or numbers.");
+    return null;
+  }
+  const pw = $("pw").value;
+  if (pw.length < 6) {
+    showMsg("Password must be at least 6 characters.");
+    return null;
+  }
+  return { email: email, pw: pw };
+}
+
+// If a student is already logged in, go straight to the order page.
+onAuthStateChanged(auth, function (user) {
+  if (user && isStudentEmail(user.email)) {
+    window.location.replace("student.html");
+  }
+});
+
+$("login-btn").addEventListener("click", async function () {
+  showMsg("");
+  const form = readForm();
+  if (!form) return;
+  try {
+    await signInWithEmailAndPassword(auth, form.email, form.pw);
+  } catch (err) {
+    showMsg("Wrong student ID or password.");
+    console.error(err);
+  }
+});
+
+$("signup-btn").addEventListener("click", async function () {
+  showMsg("");
+  const form = readForm();
+  if (!form) return;
+  try {
+    await createUserWithEmailAndPassword(auth, form.email, form.pw);
+  } catch (err) {
+    if (err.code === "auth/email-already-in-use") {
+      showMsg("This student ID already has an account. Use Log in.");
+    } else {
+      showMsg("Could not create the account. Try again.");
+    }
+    console.error(err);
+  }
+});
+</script>
+
+</body>
+</html>
