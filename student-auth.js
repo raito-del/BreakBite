@@ -23,3 +23,8 @@ export function studentEmail(raw) {
 export function isStudentEmail(email) {
   return String(email || "").toLowerCase().endsWith("@" + STUDENT_EMAIL_DOMAIN);
 }
+
+// Returns the student ID from a login email, e.g. 26251037@breakbite.app -> 26251037
+export function studentIdFromEmail(email) {
+  return String(email || "").split("@")[0];
+}
